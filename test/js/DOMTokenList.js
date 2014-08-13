@@ -49,7 +49,7 @@ suite('DOMTokenList', function() {
   test('contains', function() {
     var div = document.createElement('div');
     var classList = div.classList;
-    assert.isFalse(classList.contains());
+    assert.isFalse(classList.contains(null));
     assert.isFalse(classList.contains('a'));
     div.className = 'a';
     assert.isTrue(classList.contains('a'));

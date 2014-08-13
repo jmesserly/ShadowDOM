@@ -6,11 +6,9 @@
 
 suite('Shadow DOM rerender', function() {
 
-  var unwrap = ShadowDOMPolyfill.unwrap;
-
   function getVisualInnerHtml(el) {
     el.offsetWidth;
-    return unwrap(el).innerHTML;
+    return el.visualInnerHTML_;
   }
 
   test('No <content> nor <shadow>', function() {
@@ -501,66 +499,57 @@ suite('Shadow DOM rerender', function() {
     a.textContent = 'x';
 
     // Don't use getVisualInnerHtml but it does invalidation.
-    assert.equal(host.impl.innerHTML, '<b></b><a>x</a><c></c>');
+    assert.equal(host.visualInnerHTML_, '<b></b><a>x</a><c></c>');
 
     host.appendChild(document.createTextNode('y'));
-    assert.equal(host.impl.innerHTML, '<b></b><a>x</a><c></c>y');  //dirty
+    assert.equal(host.visualInnerHTML_, '<b></b><a>x</a><c></c>y');  //dirty
     host.offsetWidth;
-    assert.equal(host.impl.innerHTML, '<b></b><a>x</a>y<c></c>');
+    assert.equal(host.visualInnerHTML_, '<b></b><a>x</a>y<c></c>');
 
     sr.appendChild(document.createTextNode('z'));
-    assert.equal(host.impl.innerHTML, '<b></b><a>x</a>y<c></c>');  //dirty
+    assert.equal(host.visualInnerHTML_, '<b></b><a>x</a>y<c></c>');  //dirty
     host.offsetWidth;
-    assert.equal(host.impl.innerHTML, '<b></b><a>x</a>y<c></c>z');
+    assert.equal(host.visualInnerHTML_, '<b></b><a>x</a>y<c></c>z');
 
     sr.insertBefore(document.createTextNode('w'), content);
-    assert.equal(host.impl.innerHTML, '<b></b><a>x</a>y<c></c>z');  // dirty
+    assert.equal(host.visualInnerHTML_, '<b></b><a>x</a>y<c></c>z');  // dirty
     host.offsetWidth;
-    assert.equal(host.impl.innerHTML, '<b></b>w<a>x</a>y<c></c>z');
+    assert.equal(host.visualInnerHTML_, '<b></b>w<a>x</a>y<c></c>z');
 
     // This case does not need invalidation.
     // We could make the check a bit more specific (check for nextSibling being
     // null or a content/shadow).
     sr.insertBefore(document.createTextNode('v'), c);
-    assert.equal(host.impl.innerHTML, '<b></b>w<a>x</a>yv<c></c>z');
+    assert.equal(host.visualInnerHTML_, '<b></b>w<a>x</a>yv<c></c>z');
     host.offsetWidth;
-    assert.equal(host.impl.innerHTML, '<b></b>w<a>x</a>yv<c></c>z');
+    assert.equal(host.visualInnerHTML_, '<b></b>w<a>x</a>yv<c></c>z');
 
     content.select = '*';
-    assert.equal(host.impl.innerHTML, '<b></b>w<a>x</a>yv<c></c>z');  // dirty
+    assert.equal(host.visualInnerHTML_, '<b></b>w<a>x</a>yv<c></c>z');  // dirty
     host.offsetWidth;
-    assert.equal(host.impl.innerHTML, '<b></b>w<a>x</a>v<c></c>z');
+    assert.equal(host.visualInnerHTML_, '<b></b>w<a>x</a>v<c></c>z');
 
     content.setAttribute('SelecT', 'no-match');
-    assert.equal(host.impl.innerHTML, '<b></b>w<a>x</a>v<c></c>z');  // dirty
+    assert.equal(host.visualInnerHTML_, '<b></b>w<a>x</a>v<c></c>z');  // dirty
     host.offsetWidth;
-    assert.equal(host.impl.innerHTML, '<b></b>wv<c></c>z');
+    assert.equal(host.visualInnerHTML_, '<b></b>wv<c></c>z');
   });
 
   test('minimal dom changes', function() {
     var div = document.createElement('div');
-    var OriginalNodePrototype =
-        // Node.prototype
-        Object.getPrototypeOf(
-            // Element.prototype
-            Object.getPrototypeOf(
-                // HTMLElement.prototype
-                Object.getPrototypeOf(
-                    // HTMLDivElement.prototype
-                    Object.getPrototypeOf(unwrap(div)))));
 
-    var originalInsertBefore = OriginalNodePrototype.insertBefore;
-    var originalRemoveChild = OriginalNodePrototype.removeChild;
+    var originalInsertBefore = Node.prototype.visualInsertBefore_;
+    var originalRemoveChild = Node.prototype.visualRemoveChild_;
 
     var insertBeforeCount = 0;
     var removeChildCount = 0;
 
-    OriginalNodePrototype.insertBefore = function(newChild, refChild) {
+    Node.prototype.visualInsertBefore_ = function(newChild, refChild) {
       insertBeforeCount++;
       return originalInsertBefore.call(this, newChild, refChild);
     };
 
-    OriginalNodePrototype.removeChild = function(child) {
+    Node.prototype.visualRemoveChild_ = function(child) {
       removeChildCount++;
       return originalRemoveChild.call(this, child);
     };
@@ -568,6 +557,11 @@ suite('Shadow DOM rerender', function() {
     function reset() {
       insertBeforeCount = 0;
       removeChildCount = 0;
+    }
+
+    function expectCalls(insert, remove) {
+      assert.equal(insertBeforeCount, insert);
+      assert.equal(removeChildCount, remove);
     }
 
     try {
@@ -581,8 +575,7 @@ suite('Shadow DOM rerender', function() {
 
       assert.equal(getVisualInnerHtml(div), '<a></a><b></b>');
 
-      assert.equal(insertBeforeCount, 1);
-      assert.equal(removeChildCount, 1);
+      expectCalls(4, 1);
 
       reset();
 
@@ -590,59 +583,49 @@ suite('Shadow DOM rerender', function() {
       content.select = '*';
 
       assert.equal(getVisualInnerHtml(div), '<a></a><b></b>');
-      assert.equal(insertBeforeCount, 0);
-      assert.equal(removeChildCount, 0);
+      expectCalls(0, 0);
 
-      // Does not use our overridden appendChild
+      // Does use our overridden appendChild
       var c = div.appendChild(document.createElement('c'));
-      assert.equal(insertBeforeCount, 0);
-      assert.equal(removeChildCount, 0);
+      expectCalls(1, 0);
 
       assert.equal(getVisualInnerHtml(div), '<a></a><c></c><b></b>');
-      assert.equal(insertBeforeCount, 1);
-      assert.equal(removeChildCount, 1);
+      expectCalls(2, 1);
 
       content.select = 'c';
       reset();
       assert.equal(getVisualInnerHtml(div), '<c></c><b></b>');
-      assert.equal(insertBeforeCount, 0);
-      assert.equal(removeChildCount, 1);
+      expectCalls(0, 1);
 
       content.select = '*';
       reset();
       assert.equal(getVisualInnerHtml(div), '<a></a><c></c><b></b>');
-      assert.equal(insertBeforeCount, 1);
-      assert.equal(removeChildCount, 0);
+      expectCalls(1, 0);
 
       content.select = 'x';
       reset();
       assert.equal(getVisualInnerHtml(div), '<b></b>');
-      assert.equal(insertBeforeCount, 0);
-      assert.equal(removeChildCount, 2);
+      expectCalls(0, 2);
 
       content.appendChild(document.createTextNode('fallback'));
       reset();
       assert.equal(getVisualInnerHtml(div), 'fallback<b></b>');
-      assert.equal(insertBeforeCount, 1);
-      assert.equal(removeChildCount, 1);  // moved from content
+      expectCalls(1, 1);  // moved from content
 
       content.insertBefore(document.createTextNode('more '),
                            content.firstChild);
       reset();
       assert.equal(getVisualInnerHtml(div), 'more fallback<b></b>');
-      assert.equal(insertBeforeCount, 0);  // already inserted before "fallback"
-      assert.equal(removeChildCount, 0);
+      expectCalls(0, 0);  // already inserted before "fallback"
 
       content.select = '*';
       reset();
       assert.equal(getVisualInnerHtml(div), '<a></a><c></c><b></b>');
-      assert.equal(insertBeforeCount, 2);
-      assert.equal(removeChildCount, 2);
-
+      expectCalls(2, 2);
 
     } finally {
-      OriginalNodePrototype.insertBefore =  originalInsertBefore;
-      OriginalNodePrototype.removeChild = originalRemoveChild;
+      Node.prototype.visualInsertBefore_ =  originalInsertBefore;
+      Node.prototype.visualRemoveChild_ = originalRemoveChild;
     }
   });
 });

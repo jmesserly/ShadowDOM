@@ -42,5 +42,7 @@
     }
   };
 
+  window.DOMTokenList = DOMTokenList;
+
   scope.wrappers.DOMTokenList = DOMTokenList;
 })(window.ShadowDOMPolyfill);

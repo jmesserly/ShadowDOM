@@ -5,36 +5,35 @@
 (function(scope) {
   'use strict';
 
-  var DocumentFragment = scope.wrappers.DocumentFragment;
   var TreeScope = scope.TreeScope;
   var elementFromPoint = scope.elementFromPoint;
   var getInnerHTML = scope.getInnerHTML;
   var getTreeScope = scope.getTreeScope;
   var mixin = scope.mixin;
-  var rewrap = scope.rewrap;
   var setInnerHTML = scope.setInnerHTML;
-  var unwrap = scope.unwrap;
 
   var shadowHostTable = new WeakMap();
   var nextOlderShadowTreeTable = new WeakMap();
 
   var spaceCharRe = /[ \t\n\r\f]/;
 
-  function ShadowRoot(hostWrapper) {
-    var node = unwrap(hostWrapper.impl.ownerDocument.createDocumentFragment());
-    DocumentFragment.call(this, node);
+  function createShadowRoot(host) {
+    var self = host.ownerDocument.createDocumentFragment();
+    // TODO(jmesserly): can we avoid setting proto here? Should we just leave
+    // ShadowRoot as a wrapper around a DocumentFragment?
+    self.__proto__ = ShadowRoot.prototype;
 
-    // createDocumentFragment associates the node with a wrapper
-    // DocumentFragment instance. Override that.
-    rewrap(node, this);
+    var oldShadowRoot = host.shadowRoot;
+    nextOlderShadowTreeTable.set(self, oldShadowRoot);
 
-    var oldShadowRoot = hostWrapper.shadowRoot;
-    nextOlderShadowTreeTable.set(this, oldShadowRoot);
+    self.treeScope_ = new TreeScope(self, getTreeScope(oldShadowRoot || host));
 
-    this.treeScope_ =
-        new TreeScope(this, getTreeScope(oldShadowRoot || hostWrapper));
+    shadowHostTable.set(self, host);
+    return self;
+  }
 
-    shadowHostTable.set(this, hostWrapper);
+  function ShadowRoot() {
+    throw TypeError('illegal constructor');
   }
   ShadowRoot.prototype = Object.create(DocumentFragment.prototype);
   mixin(ShadowRoot.prototype, {
@@ -43,7 +42,7 @@
     },
     set innerHTML(value) {
       setInnerHTML(this, value);
-      this.invalidateShadowRenderer();
+      this.invalidateShadowRenderer_();
     },
 
     get olderShadowRoot() {
@@ -52,10 +51,6 @@
 
     get host() {
       return shadowHostTable.get(this) || null;
-    },
-
-    invalidateShadowRenderer: function() {
-      return shadowHostTable.get(this).invalidateShadowRenderer();
     },
 
     elementFromPoint: function(x, y) {
@@ -69,6 +64,8 @@
     }
   });
 
-  scope.wrappers.ShadowRoot = ShadowRoot;
+  scope.createShadowRoot = createShadowRoot;
+  scope.ShadowRoot = ShadowRoot;
+  window.ShadowRoot = ShadowRoot;
 
 })(window.ShadowDOMPolyfill);

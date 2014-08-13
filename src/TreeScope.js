@@ -31,7 +31,7 @@
 
   TreeScope.prototype = {
     get renderer() {
-      if (this.root instanceof scope.wrappers.ShadowRoot) {
+      if (this.root instanceof scope.ShadowRoot) {
         return scope.getRendererForHost(this.root.host);
       }
       return null;
@@ -59,7 +59,7 @@
   }
 
   function getTreeScope(node) {
-    if (node instanceof scope.wrappers.Window) {
+    if (node instanceof scope.Window) {
       debugger;
     }
 

@@ -5,41 +5,24 @@
 (function(scope) {
   'use strict';
 
-  var ChildNodeInterface = scope.ChildNodeInterface;
-  var Node = scope.wrappers.Node;
+  var copyProperty = scope.copyProperty;
   var enqueueMutation = scope.enqueueMutation;
   var mixin = scope.mixin;
-  var registerWrapper = scope.registerWrapper;
 
-  var OriginalCharacterData = window.CharacterData;
+  copyProperty(CharacterData, 'data', '_originalData');
+  copyProperty(CharacterData, 'data', 'textContent');
 
-  function CharacterData(node) {
-    Node.call(this, node);
-  }
-  CharacterData.prototype = Object.create(Node.prototype);
   mixin(CharacterData.prototype, {
-    get textContent() {
-      return this.data;
-    },
-    set textContent(value) {
-      this.data = value;
-    },
     get data() {
-      return this.impl.data;
+      return this._originalData;
     },
     set data(value) {
-      var oldValue = this.impl.data;
+      var oldValue = this._originalData;
       enqueueMutation(this, 'characterData', {
         oldValue: oldValue
       });
-      this.impl.data = value;
+      this._originalData = value;
     }
-  });
+  }, scope.ChildNodeInterface);
 
-  mixin(CharacterData.prototype, ChildNodeInterface);
-
-  registerWrapper(OriginalCharacterData, CharacterData,
-                  document.createTextNode(''));
-
-  scope.wrappers.CharacterData = CharacterData;
 })(window.ShadowDOMPolyfill);

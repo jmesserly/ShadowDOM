@@ -7,6 +7,7 @@
 suite('Element', function() {
 
   var wrap = ShadowDOMPolyfill.wrap;
+  var unwrap = ShadowDOMPolyfill.unwrap;
   var div;
 
   teardown(function() {
@@ -176,7 +177,7 @@ suite('Element', function() {
   });
 
   test('getDestinationInsertionPoints', function() {
-    var div = document.createElement('div');
+    var div = unwrap(document.createElement('div'));
     div.innerHTML = '<a></a><b></b>';
     var a = div.firstChild;
     var b = div.lastChild;
@@ -196,7 +197,7 @@ suite('Element', function() {
   });
 
   test('getDestinationInsertionPoints redistribution', function() {
-    var div = document.createElement('div');
+    var div = unwrap(document.createElement('div'));
     div.innerHTML = '<a></a><b></b>';
     var a = div.firstChild;
     var b = div.lastChild;
@@ -219,7 +220,9 @@ suite('Element', function() {
     var a0 = div.firstChild;
     var a1 = div.lastChild;
 
-    var as = document.getElementsByName('a');
+
+    var doc = wrap(document);
+    var as = doc.getElementsByName('a');
     assert.instanceOf(as, NodeList);
     assert.equal(as.length, 2);
     assert.equal(as[0], a0);
@@ -227,7 +230,6 @@ suite('Element', function() {
     assert.equal(as[1], a1);
     assert.equal(as.item(1), a1);
 
-    var doc = wrap(document);
     as = doc.getElementsByName('a');
     assert.instanceOf(as, NodeList);
     assert.equal(as.length, 2);
@@ -237,7 +239,7 @@ suite('Element', function() {
     assert.equal(as.item(1), a1);
 
     a0.setAttribute('name', '"odd"');
-    as = document.getElementsByName('"odd"');
+    as = doc.getElementsByName('"odd"');
     assert.instanceOf(as, NodeList);
     assert.equal(as.length, 1);
     assert.equal(as[0], a0);
@@ -245,7 +247,7 @@ suite('Element', function() {
 
     var sr = div.createShadowRoot();
     sr.innerHTML = '<span name=a></span>';
-    as = document.getElementsByName('a');
+    as = doc.getElementsByName('a');
     assert.instanceOf(as, NodeList);
     assert.equal(as.length, 1);
     assert.equal(as[0], a1);

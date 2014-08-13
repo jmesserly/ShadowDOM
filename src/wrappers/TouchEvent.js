@@ -9,10 +9,7 @@
 
   var UIEvent = scope.wrappers.UIEvent;
   var mixin = scope.mixin;
-  var registerWrapper = scope.registerWrapper;
-  var unwrap = scope.unwrap;
-  var wrap = scope.wrap;
-
+  
   // TouchEvent is WebKit/Blink only.
   var OriginalTouchEvent = window.TouchEvent;
   if (!OriginalTouchEvent)
@@ -39,7 +36,7 @@
 
   Touch.prototype = {
     get target() {
-      return wrap(this.impl.target);
+      return this.impl.target;
     }
   };
 
@@ -96,15 +93,15 @@
 
   mixin(TouchEvent.prototype, {
     get touches() {
-      return wrapTouchList(unwrap(this).touches);
+      return wrapTouchList(this.touches);
     },
 
     get targetTouches() {
-      return wrapTouchList(unwrap(this).targetTouches);
+      return wrapTouchList(this.targetTouches);
     },
 
     get changedTouches() {
-      return wrapTouchList(unwrap(this).changedTouches);
+      return wrapTouchList(this.changedTouches);
     },
 
     initTouchEvent: function() {
@@ -114,8 +111,6 @@
       throw new Error('Not implemented');
     }
   });
-
-  registerWrapper(OriginalTouchEvent, TouchEvent, nativeEvent);
 
   scope.wrappers.Touch = Touch;
   scope.wrappers.TouchEvent = TouchEvent;

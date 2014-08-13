@@ -8,7 +8,6 @@
   'use strict';
 
   var setEndOfMicrotask = scope.setEndOfMicrotask
-  var wrapIfNeeded = scope.wrapIfNeeded
   var wrappers = scope.wrappers;
 
   var registrationsTable = new WeakMap();
@@ -257,8 +256,6 @@
   MutationObserver.prototype = {
     // http://dom.spec.whatwg.org/#dom-mutationobserver-observe
     observe: function(target, options) {
-      target = wrapIfNeeded(target);
-
       var newOptions = new MutationObserverOptions(options);
 
       // 6.
@@ -363,6 +360,8 @@
       }
     }
   };
+
+  window.MutationObserver = MutationObserver;
 
   scope.enqueueMutation = enqueueMutation;
   scope.registerTransientObservers = registerTransientObservers;

@@ -5,6 +5,7 @@
  */
 
 var assert = chai.assert;
+chai.config.includeStack = true; // turn on stack trace
 
 var thisFile = 'test.main.js';
 var base;
@@ -30,11 +31,21 @@ function expectStructure(nodeOrWrapper, nonNullFields) {
   assert.strictEqual(nodeOrWrapper.lastChild, nonNullFields.lastChild || null);
 }
 
-function unwrapAndExpectStructure(node, nonNullFields) {
+function expectVisualStructure(nodeOrWrapper, nonNullFields) {
+  assert(nodeOrWrapper);
   for (var p in nonNullFields) {
-    nonNullFields[p] = ShadowDOMPolyfill.unwrap(nonNullFields[p]);
+    nonNullFields[p] = ShadowDOMPolyfill.unwrapIfNeeded(nonNullFields[p]);
   }
-  expectStructure(ShadowDOMPolyfill.unwrap(node), nonNullFields);
+  assert.strictEqual(nodeOrWrapper.visualParentNode_,
+      nonNullFields.parentNode || null);
+  assert.strictEqual(nodeOrWrapper.visualPreviousSibling_,
+      nonNullFields.previousSibling || null);
+  assert.strictEqual(nodeOrWrapper.visualNextSibling_,
+      nonNullFields.nextSibling || null);
+  assert.strictEqual(nodeOrWrapper.visualFirstChild_,
+      nonNullFields.firstChild || null);
+  assert.strictEqual(nodeOrWrapper.visualLastChild_,
+      nonNullFields.lastChild || null);
 }
 
 function assertArrayEqual(a, b, msg) {
@@ -65,6 +76,10 @@ function expectMutationRecord(record, expected) {
           null : expected.attributeNamespace);
   assert.equal(record.oldValue,
       expected.oldValue === undefined ? null : expected.oldValue);
+}
+
+function isIE() {
+  return /Trident/.test(navigator.userAgent);
 }
 
 mocha.setup({

@@ -33,7 +33,8 @@ suite('HTMLAudioElement', function() {
   });
 
   test('Audio called as function', function() {
-    assert.throws(Audio, TypeError);
+    if (!isIE())
+      assert.throws(Audio, TypeError);
   });
 
   test('Audio basics', function() {

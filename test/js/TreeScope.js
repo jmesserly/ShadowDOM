@@ -7,12 +7,13 @@
 suite('TreeScope', function() {
 
   var getTreeScope = ShadowDOMPolyfill.getTreeScope;
+  var unwrap = ShadowDOMPolyfill.unwrap;
 
   test('Basic', function() {
     var div = document.createElement('div');
 
     var ts = getTreeScope(div);
-    assert.equal(ts.root, div);
+    assert.equal(ts.root, unwrap(div));
 
     div.innerHTML = '<a><b></b></a>';
     var a = div.firstChild;
@@ -26,7 +27,7 @@ suite('TreeScope', function() {
     var div = document.createElement('div');
 
     var ts = getTreeScope(div);
-    assert.equal(ts.root, div);
+    assert.equal(ts.root, unwrap(div));
 
     div.innerHTML = '<a><b></b></a>';
     var a = div.firstChild;
@@ -35,7 +36,7 @@ suite('TreeScope', function() {
     var sr = a.createShadowRoot();
 
     var srTs = getTreeScope(sr);
-    assert.equal(srTs.root, sr);
+    assert.equal(srTs.root, unwrap(sr));
     assert.equal(srTs.parent, ts);
 
     sr.innerHTML = '<c><d></d></c>';
