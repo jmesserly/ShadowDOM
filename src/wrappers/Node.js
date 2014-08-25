@@ -126,21 +126,30 @@
   }
 
   // http://dom.spec.whatwg.org/#node-is-inserted
-  function nodeWasAdded(node, treeScope) {
-    setTreeScope(node, treeScope);
-    node.nodeIsInserted_();
-  }
-
   function nodesWereAdded(nodes, parent) {
-    var treeScope = getTreeScope(parent);
+    var treeScope;
     for (var i = 0; i < nodes.length; i++) {
-      nodeWasAdded(nodes[i], treeScope);
+      var node = nodes[i];
+
+      // Note: pushing down the treeScope can be expensive, so we try and do
+      // it as lazily as possible.
+      if (node.treeScope_) {
+        // TODO(jmesserly): it would be nice to just clear the existing
+        // TreeScope and let it be lazily restored later. But TreeScope.parent
+        // is not looked up dynamically, so we need (for now) to get the real
+        // tree scope of ourselves and push it down.
+        if (treeScope === undefined) {
+          treeScope = getTreeScope(parent);
+        }
+        setTreeScope(node, treeScope);
+      }
+      node.nodeIsInserted_();
     }
   }
 
   // http://dom.spec.whatwg.org/#node-is-removed
   function nodeWasRemoved(node) {
-    setTreeScope(node, new TreeScope(node, null));
+    setTreeScope(node, null);
   }
 
   function nodesWereRemoved(nodes) {
@@ -522,6 +531,8 @@
 
       registerTransientObservers(this, child);
 
+      nodeWasRemoved(child);
+
       return child;
     },
 
@@ -631,8 +642,6 @@
   });
 
   scope.cloneNode = cloneNode;
-  scope.nodeWasAdded = nodeWasAdded;
-  scope.nodeWasRemoved = nodeWasRemoved;
   scope.nodesWereAdded = nodesWereAdded;
   scope.nodesWereRemoved = nodesWereRemoved;
   scope.snapshotNodeList = snapshotNodeList;
