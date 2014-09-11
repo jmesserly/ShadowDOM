@@ -11,6 +11,7 @@
 
   var Window = window.Window;
   var originalGetComputedStyle = window.getComputedStyle;
+  var originalGetDefaultComputedStyle = window.getDefaultComputedStyle;
   var originalGetSelection = window.getSelection;
 
   Window.prototype.getComputedStyle = function(el, pseudo) {
@@ -25,6 +26,7 @@
 
   // Work around for https://bugzilla.mozilla.org/show_bug.cgi?id=943065
   delete window.getComputedStyle;
+  delete window.getDefaultComputedStyle;
   delete window.getSelection;
 
   scope.Window = Window;

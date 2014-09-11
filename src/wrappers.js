@@ -47,6 +47,7 @@ window.ShadowDOMPolyfill = {};
     return /^\w[a-zA-Z_0-9]*$/.test(name);
   }
 
+  // TODO(jmesserly): remove all of these ... perhaps move them into tests.
   function isWrapper(object) {
     return false;
   }
@@ -72,6 +73,16 @@ window.ShadowDOMPolyfill = {};
    */
   function unwrap(wrapper) {
     return wrapper;
+  }
+
+  function unsafeUnwrap(wrapper) {
+    return wrapper;
+  }
+
+  function setWrapper(impl, wrapper) {
+  }
+
+  function rewrap(impl, wrapper) {
   }
 
   /**
@@ -113,6 +124,9 @@ window.ShadowDOMPolyfill = {};
   scope.isWrapper = isWrapper;
   scope.mixin = mixin;
   scope.oneOf = oneOf;
+  scope.rewrap = rewrap;
+  scope.setWrapper = setWrapper;
+  scope.unsafeUnwrap = unsafeUnwrap;
   scope.unwrap = unwrap;
   scope.unwrapIfNeeded = unwrapIfNeeded;
   scope.wrap = wrap;

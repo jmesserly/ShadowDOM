@@ -18,6 +18,8 @@ htmlSuite('Document', function() {
     }
   });
 
+  function skipTest () {}
+
   test('Ensure Document has ParentNodeInterface', function() {
     var doc = wrap(document).implementation.createHTMLDocument('');
     assert.equal(doc.firstElementChild.tagName, 'HTML');
@@ -67,7 +69,9 @@ htmlSuite('Document', function() {
     assert.isTrue(elements2[0] instanceof HTMLElement);
     assert.equal(doc.body, elements2[0]);
     assert.equal(doc.body, elements2.item(0));
+  });
 
+  skipTest('getElementsByTagName', function() {
     div = document.body.appendChild(document.createElement('div'));
     div.innerHTML = '<aa></aa><aa></aa>';
     var aa1 = div.firstChild;
@@ -89,6 +93,9 @@ htmlSuite('Document', function() {
     assert.equal(elements.length, 2);
     assert.equal(elements[0], aa3);
     assert.equal(elements[1], aa4);
+
+    var z = document.getElementsByTagName('z');
+    assert.equal(z.length, 0);
   });
 
   test('getElementsByTagNameNS', function() {
@@ -156,7 +163,9 @@ htmlSuite('Document', function() {
     assert.equal(elements2.length, 1);
     assert.isTrue(elements2[0] instanceof HTMLElement);
     assert.equal(doc.body, elements2[0]);
+  });
 
+  skipTest('querySelectorAll', function() {
     div = document.body.appendChild(document.createElement('div'));
     div.innerHTML = '<aa></aa><aa></aa>';
     var aa1 = div.firstChild;
@@ -178,6 +187,52 @@ htmlSuite('Document', function() {
     assert.equal(elements.length, 2);
     assert.equal(elements[0], aa3);
     assert.equal(elements[1], aa4);
+
+    var z = document.querySelectorAll('z');
+    assert.equal(z.length, 0);
+  });
+
+  test('querySelector', function() {
+    var z = document.querySelector('z');
+    assert.equal(z, null);
+  });
+
+  test('querySelector deep', function() {
+    div = document.body.appendChild(document.createElement('div'));
+    div.innerHTML = '<aa></aa><aa></aa>';
+    var aa1 = div.firstChild;
+    var aa2 = div.lastChild;
+
+    var sr = div.createShadowRoot();
+    sr.innerHTML = '<bb></bb><content></content>';
+    var bb = sr.firstChild;
+
+    div.offsetHeight;
+
+    assert.equal(aa1, document.querySelector('div /deep/ aa'));
+    assert.equal(bb, document.querySelector('div /deep/ bb'));
+  });
+
+  test('querySelectorAll deep', function() {
+    div = document.body.appendChild(document.createElement('div'));
+    div.innerHTML = '<aa></aa><aa></aa>';
+    var aa1 = div.firstChild;
+    var aa2 = div.lastChild;
+
+    var sr = div.createShadowRoot();
+    sr.innerHTML = '<bb></bb><content></content>';
+    var bb = sr.firstChild;
+
+    div.offsetHeight;
+
+    var list = document.querySelectorAll('div /deep/ aa');
+    assert.equal(2, list.length);
+    assert.equal(aa1, list[0]);
+    assert.equal(aa2, list[1]);
+
+    list = document.querySelectorAll('div /deep/ bb');
+    assert.equal(1, list.length);
+    assert.equal(bb, list[0]);
   });
 
   test('addEventListener', function() {

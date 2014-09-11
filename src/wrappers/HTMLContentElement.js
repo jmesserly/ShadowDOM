@@ -13,6 +13,8 @@
   var HTMLShadowElement = window.HTMLShadowElement || window.HTMLUnknownElement;
 
   mixin(HTMLContentElement.prototype, {
+    constructor: HTMLContentElement,
+
     get select() {
       return this.getAttribute('select');
     },

@@ -16,6 +16,8 @@ suite('Element', function() {
     div = null;
   });
 
+  function skipTest () {}
+
   test('querySelector', function() {
     var div = document.createElement('div');
     div.innerHTML = '<a><b></b></a>';
@@ -30,6 +32,12 @@ suite('Element', function() {
 
     assert.equal(div.querySelector('b'), b);
     assert.equal(sr.querySelector('b'), srb);
+
+    var z = div.querySelector('z');
+    assert.equal(z, null);
+
+    var z = sr.querySelector('z');
+    assert.equal(z, null);
   });
 
   test('querySelectorAll', function() {
@@ -44,6 +52,13 @@ suite('Element', function() {
     assert.equal(as.item(0), a0);
     assert.equal(as[1], a1);
     assert.equal(as.item(1), a1);
+  });
+
+  skipTest('querySelectorAll', function() {
+    var div = document.createElement('div');
+    div.innerHTML = '<a>0</a><a>1</a>';
+    var a0 = div.firstChild;
+    var a1 = div.lastChild;
 
     var sr = div.createShadowRoot();
     sr.innerHTML = '<a>3</a><a>4</a>';
@@ -61,9 +76,53 @@ suite('Element', function() {
     assert.equal(as.length, 2);
     assert.equal(as[0], a3);
     assert.equal(as[1], a4);
+
+    var z = div.querySelectorAll('z');
+    assert.equal(z.length, 0);
+
+    var z = sr.querySelectorAll('z');
+    assert.equal(z.length, 0);
   });
 
-  test('getElementsByTagName', function() {
+  test('querySelector deep', function() {
+    var div = document.createElement('div');
+    div.innerHTML = '<aa></aa><aa></aa>';
+    var aa1 = div.firstChild;
+    var aa2 = div.lastChild;
+
+    var sr = div.createShadowRoot();
+    sr.innerHTML = '<bb></bb><content></content>';
+    var bb = sr.firstChild;
+
+    div.offsetHeight;
+
+    assert.equal(aa1, div.querySelector('div /deep/ aa'));
+    assert.equal(bb, div.querySelector('div /deep/ bb'));
+  });
+
+  test('querySelectorAll deep', function() {
+    var div = document.createElement('div');
+    div.innerHTML = '<aa></aa><aa></aa>';
+    var aa1 = div.firstChild;
+    var aa2 = div.lastChild;
+
+    var sr = div.createShadowRoot();
+    sr.innerHTML = '<bb></bb><content></content>';
+    var bb = sr.firstChild;
+
+    div.offsetHeight;
+
+    var list = div.querySelectorAll('div /deep/ aa');
+    assert.equal(2, list.length);
+    assert.equal(aa1, list[0]);
+    assert.equal(aa2, list[1]);
+
+    list = div.querySelectorAll('div /deep/ bb');
+    assert.equal(1, list.length);
+    assert.equal(bb, list[0]);
+  });
+
+  skipTest('getElementsByTagName', function() {
     var div = document.createElement('div');
     div.innerHTML = '<a>0</a><a>1</a>';
     var a0 = div.firstChild;
@@ -92,6 +151,12 @@ suite('Element', function() {
     assert.equal(as.length, 2);
     assert.equal(as[0], a3);
     assert.equal(as[1], a4);
+
+    var z = div.getElementsByTagName('z');
+    assert.equal(z.length, 0);
+
+    var z = sr.getElementsByTagName('z');
+    assert.equal(z.length, 0);
   });
 
   test('getElementsByTagName with colon', function() {
@@ -137,7 +202,21 @@ suite('Element', function() {
     assert.equal(as.item(2), a3);
   });
 
-  test('getElementsByClassName', function() {
+  test('getElementsByTagNameNS', function() {
+    var div = document.createElement('div');
+    div.innerHTML = '<a>0</a><a>1</a>';
+
+    var sr = div.createShadowRoot();
+    sr.innerHTML = '<a>3</a><a>4</a>';
+
+    var z = div.getElementsByTagNameNS('NS', 'z');
+    assert.equal(z.length, 0);
+
+    var z = sr.getElementsByTagNameNS('NS', 'z');
+    assert.equal(z.length, 0);
+  });
+
+  skipTest('getElementsByClassName', function() {
     var div = document.createElement('div');
     div.innerHTML = '<span class=a>0</span><span class=a>1</span>';
     var a0 = div.firstChild;
@@ -252,5 +331,59 @@ suite('Element', function() {
     assert.equal(as.length, 1);
     assert.equal(as[0], a1);
     assert.equal(as.item(0), a1);
+  });
+
+  test('sub shadow-root traversal', function() {
+    var div = document.createElement("DIV");
+    var sr = div.createShadowRoot();
+    sr.innerHTML = "<aa><bb></bb></aa>";
+
+    var saal = sr.getElementsByTagName("aa");
+    var sbbl = sr.getElementsByTagName("bb");
+    assert.equal(saal.length, 1);
+    assert.equal(sbbl.length, 1);
+
+    var saa = saal [0];
+    var sbb = sbbl [0];
+    var abbl = saa.getElementsByTagName("bb");
+    assert.equal(abbl.length, 1);
+
+    var abb = abbl [0];
+    assert.instanceOf(abb, HTMLElement);
+    assert.equal(abb, sbb);
+
+    var saal = sr.getElementsByTagNameNS("*", "aa");
+    var sbbl = sr.getElementsByTagNameNS("*", "bb");
+    assert.equal(saal.length, 1);
+    assert.equal(sbbl.length, 1);
+
+    var saa = saal [0];
+    var sbb = sbbl [0];
+    var abbl = saa.getElementsByTagNameNS("*", "bb");
+    assert.equal(abbl.length, 1);
+
+    var abb = abbl [0];
+    assert.instanceOf(abb, HTMLElement);
+    assert.equal(abb, sbb);
+
+    var saal = sr.querySelectorAll("aa");
+    var sbbl = sr.querySelectorAll("bb");
+    assert.equal(saal.length, 1);
+    assert.equal(sbbl.length, 1);
+
+    var saa = saal [0];
+    var sbb = sbbl [0];
+    var abbl = saa.querySelectorAll("bb");
+    assert.equal(abbl.length, 1);
+
+    var abb = abbl [0];
+    assert.instanceOf(abb, HTMLElement);
+    assert.equal(abb, sbb);
+
+    var saa = sr.querySelector("aa");
+    var sbb = sr.querySelector("bb");
+    var abb = saa.querySelector("bb");
+    assert.instanceOf(abb, HTMLElement);
+    assert.equal(abb, sbb);
   });
 });

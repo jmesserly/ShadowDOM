@@ -14,7 +14,7 @@
   var globalMutationObservers = [];
   var isScheduled = false;
 
-  function scheduleCallback(observer) {
+  function scheduleCallback() {
     if (isScheduled)
       return;
     setEndOfMicrotask(notifyObservers);
@@ -25,20 +25,24 @@
   function notifyObservers() {
     isScheduled = false;
 
-    do {
-      var notifyList = globalMutationObservers.slice();
-      var anyNonEmpty = false;
+    while (globalMutationObservers.length) {
+      var notifyList = globalMutationObservers;
+      globalMutationObservers = [];
+
+      // Deliver changes in birth order of the MutationObservers.
+      notifyList.sort(function(x, y) { return x.uid_ - y.uid_; });
+
       for (var i = 0; i < notifyList.length; i++) {
         var mo = notifyList[i];
         var queue = mo.takeRecords();
         removeTransientObserversFor(mo);
         if (queue.length) {
           mo.callback_(queue, mo);
-          anyNonEmpty = true;
         }
       }
-    } while (anyNonEmpty);
+    }
   }
+
 
   /**
    * @param {string} type
@@ -145,7 +149,7 @@
       }
     }
 
-    var anyRecordsEnqueued = false;
+    var anyObserversEnqueued = false;
 
     // 4.
     for (var uid in interestedObservers) {
@@ -179,12 +183,14 @@
         record.oldValue = associatedStrings[uid];
 
       // 8.
+      if (!observer.records_.length) {
+        globalMutationObservers.push(observer);
+        anyObserversEnqueued = true;
+      }
       observer.records_.push(record);
-
-      anyRecordsEnqueued = true;
     }
 
-    if (anyRecordsEnqueued)
+    if (anyObserversEnqueued)
       scheduleCallback();
   }
 
@@ -248,12 +254,11 @@
     this.nodes_ = [];
     this.records_ = [];
     this.uid_ = ++uidCounter;
-
-    // This will leak. There is no way to implement this without WeakRefs :'(
-    globalMutationObservers.push(this);
   }
 
   MutationObserver.prototype = {
+    constructor: MutationObserver,
+
     // http://dom.spec.whatwg.org/#dom-mutationobserver-observe
     observe: function(target, options) {
       var newOptions = new MutationObserverOptions(options);

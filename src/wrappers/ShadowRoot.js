@@ -37,6 +37,8 @@
   }
   ShadowRoot.prototype = Object.create(DocumentFragment.prototype);
   mixin(ShadowRoot.prototype, {
+    constructor: ShadowRoot,
+
     get innerHTML() {
       return getInnerHTML(this);
     },

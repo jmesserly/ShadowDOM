@@ -7,6 +7,39 @@
 
   var HTMLCollection = scope.wrappers.HTMLCollection;
   var NodeList = scope.wrappers.NodeList;
+  var getTreeScope = scope.getTreeScope;
+
+  var originalDocumentQuerySelector = document.querySelector;
+  var originalElementQuerySelector = document.documentElement.querySelector;
+
+  var originalDocumentQuerySelectorAll = document.querySelectorAll;
+  var originalElementQuerySelectorAll = document.documentElement.querySelectorAll;
+
+  var originalDocumentGetElementsByTagName = document.getElementsByTagName;
+  var originalElementGetElementsByTagName = document.documentElement.getElementsByTagName;
+
+  var originalDocumentGetElementsByTagNameNS = document.getElementsByTagNameNS;
+  var originalElementGetElementsByTagNameNS = document.documentElement.getElementsByTagNameNS;
+
+  var Document = window.HTMLDocument || window.Document;
+
+  function filterNodeList(list, index, result, deep) {
+    var item = null;
+    var root = null;
+    for (var i = 0, length = list.length; i < length; i++) {
+      item = list[i];
+      if (!deep && getTreeScope(item).root instanceof scope.ShadowRoot) {
+        continue;
+      }
+      result[index++] = item;
+    }
+
+    return index;
+  }
+
+  function shimSelector(selector) {
+    return String(selector).replace(/\/deep\//g, ' ');
+  }
 
   function findOne(node, selector) {
     var m, el = node.firstElementChild;
@@ -37,7 +70,7 @@
     return true;
   }
 
-  function matchesLocalName(el, localName) {
+  function matchesLocalNameOnly(el, ns, localName) {
     return el.localName === localName;
   }
 
@@ -49,40 +82,151 @@
     return el.namespaceURI === ns && el.localName === localName;
   }
 
-  function findElements(node, result, p, arg0, arg1) {
+  function findElements(node, index, result, p, arg0, arg1) {
     var el = node.firstElementChild;
     while (el) {
       if (p(el, arg0, arg1))
-        result[result.length++] = el;
-      findElements(el, result, p, arg0, arg1);
+        result[index++] = el;
+      index = findElements(el, index, result, p, arg0, arg1);
       el = el.nextElementSibling;
     }
-    return result;
+    return index;
   }
 
   // find and findAll will only match Simple Selectors,
   // Structural Pseudo Classes are not guarenteed to be correct
   // http://www.w3.org/TR/css3-selectors/#simple-selectors
 
+  // TODO(jmesserly): we can avoid all of the `this instanceof` type checks by
+  // patching the appropriate method onto the appropriate prototype.
+
+  function querySelectorAllFiltered(p, index, result, selector, deep) {
+    var list;
+    var root = getTreeScope(this).root;
+    if (root instanceof scope.ShadowRoot) {
+      // We are in the shadow tree and the logical tree is
+      // going to be disconnected so we do a manual tree traversal
+      return findElements(this, index, result, p, selector, null);
+    } else if (this instanceof Element) {
+      list = originalElementQuerySelectorAll.call(this, selector);
+    } else if (this instanceof Document) {
+      list = originalDocumentQuerySelectorAll.call(this, selector);
+    } else {
+      // When we get a ShadowRoot the logical tree is going to be disconnected
+      // so we do a manual tree traversal
+      return findElements(this, index, result, p, selector, null);
+    }
+
+    return filterNodeList(list, index, result, deep);
+  }
+
   var SelectorsInterface = {
     querySelector: function(selector) {
-      return findOne(this, selector);
+      var shimmed = shimSelector(selector);
+      var deep = shimmed !== selector;
+      selector = shimmed;
+      var item;
+      var root = getTreeScope(this).root;
+      if (root instanceof scope.ShadowRoot) {
+        // We are in the shadow tree and the logical tree is
+        // going to be disconnected so we do a manual tree traversal
+        return findOne(this, selector);
+      } else if (this instanceof Element) {
+        item = originalElementQuerySelector.call(this, selector);
+      } else if (this instanceof Document) {
+        item = originalDocumentQuerySelector.call(this, selector);
+      } else {
+        // When we get a ShadowRoot the logical tree is going to be disconnected
+        // so we do a manual tree traversal
+        return findOne(this, selector);
+      }
+
+      if (!item) {
+        // When the original query returns nothing
+        // we return nothing (to be consistent with the other wrapped calls)
+        return item;
+      } else if (!deep && getTreeScope(item).root instanceof scope.ShadowRoot) {
+        // When the original query returns an element in the ShadowDOM
+        // we must do a manual tree traversal
+        return findOne(this, selector);
+      }
+
+      return item;
     },
     querySelectorAll: function(selector) {
-      return findElements(this, new NodeList(), matchesSelector, selector);
+      var shimmed = shimSelector(selector);
+      var deep = shimmed !== selector;
+      selector = shimmed;
+
+      var result = new NodeList();
+
+      result.length = querySelectorAllFiltered.call(this,
+          matchesSelector,
+          0,
+          result,
+          selector,
+          deep);
+
+      return result;
     }
   };
+
+  function getElementsByTagNameFiltered(p, index, result, localName,
+                                        lowercase) {
+    var list;
+    var root = getTreeScope(this).root;
+    if (root instanceof scope.ShadowRoot) {
+      // We are in the shadow tree and the logical tree is
+      // going to be disconnected so we do a manual tree traversal
+      return findElements(this, index, result, p, localName, lowercase);
+    } else if (this instanceof Element) {
+      list = originalElementGetElementsByTagName.call(this, localName,
+                                                      lowercase);
+    } else if (this instanceof Document) {
+      list = originalDocumentGetElementsByTagName.call(this, localName,
+                                                       lowercase);
+    } else {
+      // When we get a ShadowRoot the logical tree is going to be disconnected
+      // so we do a manual tree traversal
+      return findElements(this, index, result, p, localName, lowercase);
+    }
+
+    return filterNodeList(list, index, result, false);
+  }
+
+  function getElementsByTagNameNSFiltered(p, index, result, ns, localName) {
+    var list;
+    var root = getTreeScope(this).root;
+    if (root instanceof scope.ShadowRoot) {
+      // We are in the shadow tree and the logical tree is
+      // going to be disconnected so we do a manual tree traversal
+      return findElements(this, index, result, p, ns, localName);
+    } else if (this instanceof Element) {
+      list = originalElementGetElementsByTagNameNS.call(this, ns, localName);
+    } else if (this instanceof Document) {
+      list = originalDocumentGetElementsByTagNameNS.call(this, ns, localName);
+    } else {
+      // When we get a ShadowRoot the logical tree is going to be disconnected
+      // so we do a manual tree traversal
+      return findElements(this, index, result, p, ns, localName);
+    }
+
+    return filterNodeList(list, index, result, false);
+  }
 
   var GetElementsByInterface = {
     getElementsByTagName: function(localName) {
       var result = new HTMLCollection();
-      if (localName === '*')
-        return findElements(this, result, matchesEveryThing);
+      var match = localName === '*' ? matchesEveryThing : matchesTagName;
 
-      return findElements(this, result,
-          matchesTagName,
+      result.length = getElementsByTagNameFiltered.call(this,
+          match,
+          0,
+          result,
           localName,
           localName.toLowerCase());
+
+      return result;
     },
 
     getElementsByClassName: function(className) {
@@ -92,19 +236,22 @@
 
     getElementsByTagNameNS: function(ns, localName) {
       var result = new HTMLCollection();
+      var match = null;
 
-      if (ns === '') {
-        ns = null;
-      } else if (ns === '*') {
-        if (localName === '*')
-          return findElements(this, result, matchesEveryThing);
-        return findElements(this, result, matchesLocalName, localName);
+      if (ns === '*') {
+        match = localName === '*' ? matchesEveryThing : matchesLocalNameOnly;
+      } else {
+        match = localName === '*' ? matchesNameSpace : matchesLocalNameNS;
       }
 
-      if (localName === '*')
-        return findElements(this, result, matchesNameSpace, ns);
+      result.length = getElementsByTagNameNSFiltered.call(this,
+          match,
+          0,
+          result,
+          ns || null,
+          localName);
 
-      return findElements(this, result, matchesLocalNameNS, ns, localName);
+      return result;
     }
   };
 

@@ -226,6 +226,18 @@
     }
   }
 
+  function isLoadLikeEvent(event) {
+    switch (event.type) {
+      // http://www.whatwg.org/specs/web-apps/current-work/multipage/webappapis.html#events-and-the-window-object
+      case 'load':
+      // http://www.whatwg.org/specs/web-apps/current-work/multipage/browsers.html#unloading-documents
+      case 'beforeunload':
+      case 'unload':
+        return true;
+    }
+    return false;
+  }
+
   function dispatchEvent(event, originalTarget) {
     if (currentlyDispatchingEvents.get(event))
       throw new Error('InvalidStateError');
@@ -243,12 +255,11 @@
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-end.html#the-end
     var overrideTarget;
     var win;
-    var type = event.type;
 
     // Should really be not cancelable too but since Firefox has a bug there
     // we skip that check.
     // https://bugzilla.mozilla.org/show_bug.cgi?id=999456
-    if (type === 'load' && !event.bubbles) {
+    if (isLoadLikeEvent(event) && !event.bubbles) {
       var doc = originalTarget;
       if (doc instanceof Document && (win = doc.defaultView)) {
         overrideTarget = doc;
@@ -263,7 +274,7 @@
       } else {
         eventPath = getEventPath(originalTarget, event);
 
-        if (event.type !== 'load') {
+        if (!isLoadLikeEvent(event)) {
           var doc = eventPath[eventPath.length - 1];
           if (doc instanceof Document)
             win = doc.defaultView;
@@ -570,6 +581,7 @@
     }
     return false;
   }
+
 
   // Node and Window have different internal type checks in WebKit so we cannot
   // use the same method as the original function.

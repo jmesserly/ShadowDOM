@@ -34,6 +34,11 @@ suite('HTMLShadowElement', function() {
     assert.equal(host.visualInnerHTML_, 'da<a>a</a><b>b</b>cf');
   });
 
+  test('constructor', function() {
+    assert.equal(HTMLShadowElement,
+                 document.createElement('shadow').constructor);
+  });
+
   test('adding a new shadow element to a shadow tree', function() {
     var host = document.createElement('div');
     host.innerHTML = '<a></a>';

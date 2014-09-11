@@ -4,7 +4,7 @@
 
 (function(scope) {
   'use strict';
-
+  
   function invalidateClass(el) {
     scope.invalidateRendererBasedOnAttribute(el, 'class');
   }
@@ -15,6 +15,7 @@
   }
 
   DOMTokenList.prototype = {
+    constructor: DOMTokenList,
     get length() {
       return this.impl.length;
     },

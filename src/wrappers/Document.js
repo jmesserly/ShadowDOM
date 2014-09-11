@@ -71,7 +71,6 @@
         '[name=' + JSON.stringify(String(name)) + ']');
   };
 
-
   scope.adoptNodeNoRemove = adoptNodeNoRemove;
 
 })(window.ShadowDOMPolyfill);

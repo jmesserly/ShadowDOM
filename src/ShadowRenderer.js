@@ -13,7 +13,6 @@
   var getTreeScope = scope.getTreeScope;
   var mixin = scope.mixin;
   var oneOf = scope.oneOf;
-  var Element = window.Element;
 
   /**
    * Updates the fields of a wrapper to a snapshot of the logical DOM as needed.
@@ -271,7 +270,7 @@
 
     // http://w3c.github.io/webcomponents/spec/shadow/#distribution-algorithms
     distribution: function(root) {
-      this.resetAll(root);
+      this.resetAllSubtrees(root);
       this.distributionResolution(root);
     },
 
@@ -281,6 +280,10 @@
       else
         resetDestinationInsertionPoints(node);
 
+      this.resetAllSubtrees(node);
+    },
+
+    resetAllSubtrees: function(node) {
       for (var child = node.firstChild; child; child = child.nextSibling) {
         this.resetAll(child);
       }
@@ -512,7 +515,8 @@
   //   ClassSelector
   //   IDSelector
   //   AttributeSelector
-  var selectorStartCharRe = /^[*.#[a-zA-Z_|]/;
+  //   negation
+  var selectorStartCharRe = /^(:not\()?[*.#[a-zA-Z_|]/;
 
   function matches(node, contentElement) {
     var select = contentElement.getAttribute('select');
@@ -619,7 +623,6 @@
     var renderer;
     if (shadowRoot)
       renderer = getRendererForShadowRoot(shadowRoot);
-
     this.polymerShadowRenderer_ = renderer;
     if (renderer)
       renderer.invalidate();

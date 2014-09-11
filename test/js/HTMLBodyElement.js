@@ -112,5 +112,15 @@ htmlSuite('HTMLBodyElement', function() {
     assert.isTrue(document.body.contains(document.body.firstChild));
   });
 
+  test('instanceof', function() {
+    assert.instanceOf(document.createElement('body'), HTMLBodyElement);
+  });
+
+  test('constructor', function() {
+    assert.equal(HTMLBodyElement, document.createElement('body').constructor);
+  });
+
   htmlTest('html/document-body-inner-html.html');
+
+  htmlTest('html/document-body-shadow-root.html');
 });
