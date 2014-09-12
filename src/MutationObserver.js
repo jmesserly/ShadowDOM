@@ -49,16 +49,32 @@
    * @param {Node} target
    * @constructor
    */
-  function MutationRecord(type, target) {
+  function MutationRecord(type, target, data, oldValue) {
+    // TODO(jmesserly): users should not be able to call this constructor.
     this.type = type;
     this.target = target;
-    this.addedNodes = new wrappers.NodeList();
-    this.removedNodes = new wrappers.NodeList();
-    this.previousSibling = null;
-    this.nextSibling = null;
-    this.attributeName = null;
-    this.attributeNamespace = null;
-    this.oldValue = null;
+
+    if ('name' in data && 'namespace' in data) {
+      this.attributeName = data.name;
+      this.attributeNamespace = data.namespace;
+    } else {
+      this.attributeName = null;
+      this.attributeNamespace = null;
+    }
+
+    var added = data.addedNodes;
+    this.addedNodes = added ? added : new wrappers.NodeList();
+
+    var removed = data.removedNodes;
+    this.removedNodes = removed ? removed : new wrappers.NodeList();
+
+    var previous = data.previousSibling;
+    this.previousSibling = previous ? previous : null;
+
+    var next = data.nextSibling;
+    this.nextSibling = next ? next : null;
+
+    this.oldValue = oldValue !== undefined ? oldValue : null;
   }
 
   /**
@@ -154,33 +170,9 @@
     // 4.
     for (var uid in interestedObservers) {
       var observer = interestedObservers[uid];
-      var record = new MutationRecord(type, target);
-
-      // 2.
-      if ('name' in data && 'namespace' in data) {
-        record.attributeName = data.name;
-        record.attributeNamespace = data.namespace;
-      }
-
-      // 3.
-      if (data.addedNodes)
-        record.addedNodes = data.addedNodes;
-
-      // 4.
-      if (data.removedNodes)
-        record.removedNodes = data.removedNodes;
-
-      // 5.
-      if (data.previousSibling)
-        record.previousSibling = data.previousSibling;
-
-      // 6.
-      if (data.nextSibling)
-        record.nextSibling = data.nextSibling;
-
-      // 7.
-      if (associatedStrings[uid] !== undefined)
-        record.oldValue = associatedStrings[uid];
+      // 1-7.
+      var record = new MutationRecord(type, target, data,
+          associatedStrings[uid]);
 
       // 8.
       if (!observer.records_.length) {
