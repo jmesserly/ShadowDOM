@@ -49,7 +49,7 @@
    * @param {Node} target
    * @constructor
    */
-  function MutationRecord(type, target, data, oldValue) {
+  function MutationRecord(type, target, data, includeOldValue) {
     // TODO(jmesserly): users should not be able to call this constructor.
     this.type = type;
     this.target = target;
@@ -74,7 +74,7 @@
     var next = data.nextSibling;
     this.nextSibling = next ? next : null;
 
-    this.oldValue = oldValue !== undefined ? oldValue : null;
+    this.oldValue = includeOldValue ? data.oldValue : null;
   }
 
   /**
@@ -112,28 +112,27 @@
 
   // http://dom.spec.whatwg.org/#queue-a-mutation-record
   function enqueueMutation(target, type, data) {
-    // 1.
-    var interestedObservers = Object.create(null);
-    var associatedStrings = Object.create(null);
+    // This doesn't match the spec algorithm exactly. It has been optimized
+    // a bit using some of the same tricks as Blink. It should still implement
+    // the same behavior as the spec describes, though.
 
-    // 2.
+    var interestedObservers = Object.create(null);
+    var observeOldValue = Object.create(null);
+
     for (var node = target; node; node = node.parentNode) {
-      // 3.
       var registrations = registrationsTable.get(node);
       if (!registrations)
         continue;
       for (var j = 0; j < registrations.length; j++) {
         var registration = registrations[j];
         var options = registration.options;
-        // 1.
         if (node !== target && !options.subtree)
           continue;
 
-        // 2.
         if (type === 'attributes' && !options.attributes)
           continue;
 
-        // 3. If type is "attributes", options's attributeFilter is present, and
+        // If type is "attributes", options's attributeFilter is present, and
         // either options's attributeFilter does not contain name or namespace
         // is non-null, continue.
         if (type === 'attributes' && options.attributeFilter &&
@@ -142,44 +141,55 @@
           continue;
         }
 
-        // 4.
         if (type === 'characterData' && !options.characterData)
           continue;
 
-        // 5.
         if (type === 'childList' && !options.childList)
           continue;
 
-        // 6.
         var observer = registration.observer;
         interestedObservers[observer.uid_] = observer;
 
-        // 7. If either type is "attributes" and options's attributeOldValue is
+        // If either type is "attributes" and options's attributeOldValue is
         // true, or type is "characterData" and options's characterDataOldValue
         // is true, set the paired string of registered observer's observer in
         // interested observers to oldValue.
         if (type === 'attributes' && options.attributeOldValue ||
             type === 'characterData' && options.characterDataOldValue) {
-          associatedStrings[observer.uid_] = data.oldValue;
+          observeOldValue[observer.uid_] = true;
         }
       }
     }
 
     var anyObserversEnqueued = false;
+    var sharedRecord;
+    var oldValueRecord;
 
-    // 4.
     for (var uid in interestedObservers) {
       var observer = interestedObservers[uid];
-      // 1-7.
-      var record = new MutationRecord(type, target, data,
-          associatedStrings[uid]);
 
-      // 8.
-      if (!observer.records_.length) {
+      // We reuse record instances. Blink does this optimization too.
+      // TODO(jmesserly): ideally ours would be immutable too.
+      var record;
+      if (observeOldValue[uid]) {
+        if (!oldValueRecord) {
+          oldValueRecord = new MutationRecord(type, target, data, true);
+        }
+        record = oldValueRecord;
+      } else {
+        if (!sharedRecord) {
+          sharedRecord = new MutationRecord(type, target, data, false);
+        }
+        record = sharedRecord;
+      }
+
+      var records = observer.records_;
+      if (!records.length) {
         globalMutationObservers.push(observer);
         anyObserversEnqueued = true;
       }
-      observer.records_.push(record);
+
+      records.push(record);
     }
 
     if (anyObserversEnqueued)
