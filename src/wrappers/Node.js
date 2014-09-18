@@ -19,6 +19,8 @@
   var setTreeScope = scope.setTreeScope;
   var wrappers = scope.wrappers;
 
+  var emptyNodeList = new NodeList();
+
   function createOneElementNodeList(node) {
     var nodes = new NodeList();
     nodes[0] = node;
@@ -196,39 +198,27 @@
 
 
   function clearChildNodes(node) {
-    if (node.firstChild_ !== undefined) {
-      var child = node.firstChild_;
-      while (child) {
-        var tmp = child;
-        child = child.nextSibling_;
-        tmp.parentNode_ = tmp.previousSibling_ = tmp.nextSibling_ = undefined;
-      }
+    var child = node.firstChild_;
+    while (child) {
+      var tmp = child;
+      child = child.nextSibling_;
+      tmp.parentNode_ = tmp.previousSibling_ = tmp.nextSibling_ = undefined;
     }
     node.firstChild_ = node.lastChild_ = undefined;
   }
 
   function removeAllChildNodes(node) {
-    if (node.invalidateShadowRenderer_()) {
-      var child = node.firstChild;
-      while (child) {
-        assert(child.parentNode === node);
-        var nextSibling = child.nextSibling;
-        var parentNode = child.visualParentNode_;
-        if (parentNode)
-          parentNode.visualRemoveChild_(child);
-        child.previousSibling_ = child.nextSibling_ = child.parentNode_ = null;
-        child = nextSibling;
-      }
-      node.firstChild_ = node.lastChild_ = null;
-    } else {
-      var child = node.visualFirstChild_;
-      var nextSibling;
-      while (child) {
-        nextSibling = child.visualNextSibling_;
-        node.visualRemoveChild_(child);
-        child = nextSibling;
-      }
+    var child = node.firstChild;
+    while (child) {
+      assert(child.parentNode === node);
+      var nextSibling = child.nextSibling;
+      var parentNode = child.visualParentNode_;
+      if (parentNode)
+        parentNode.visualRemoveChild_(child);
+      child.previousSibling_ = child.nextSibling_ = child.parentNode_ = null;
+      child = nextSibling;
     }
+    node.firstChild_ = node.lastChild_ = null;
   }
 
   function invalidateParent(node) {
@@ -351,9 +341,12 @@
     },
 
     get childNodes() {
+      var first = this.firstChild;
+      if (!first) return emptyNodeList;
+
       var list = new NodeList();
       var i = 0;
-      for (var child = this.firstChild; child; child = child.nextSibling) {
+      for (var child = first; child; child = child.nextSibling) {
         list[i++] = child;
       }
       list.length = i;
@@ -390,11 +383,11 @@
       if (this.invalidateShadowRenderer_()) {
         removeAllChildNodes(this);
         if (textContent !== '') {
-          var textNode = this.ownerDocument.createTextNode(textContent);
-          this.appendChild(textNode);
+          this.appendChild(this.ownerDocument.createTextNode(textContent));
         }
       } else {
-        clearChildNodes(this);
+        if (this.firstChild_ !== undefined)
+          clearChildNodes(this);
         this.visualTextContent_ = textContent;
       }
 
@@ -431,16 +424,14 @@
       var useNative = !this.invalidateShadowRenderer_() &&
                       !invalidateParent(child);
 
-      if (useNative)
-        nodes = collectNodesNative(child);
-      else
-        nodes = collectNodes(child, this, previousNode, refNode);
-
       if (useNative) {
+        nodes = collectNodesNative(child);
         ensureSameOwnerDocument(this, child);
-        clearChildNodes(this);
+        if (this.firstChild_ !== undefined)
+          clearChildNodes(this);
         this.visualInsertBefore_(child, refNode);
       } else {
+        nodes = collectNodes(child, this, previousNode, refNode);
         if (!previousNode)
           this.firstChild_ = nodes[0];
         if (!refNode) {
@@ -517,7 +508,8 @@
         child.previousSibling_ = child.nextSibling_ =
             child.parentNode_ = undefined;
       } else {
-        clearChildNodes(this);
+        if (this.firstChild_ !== undefined)
+          clearChildNodes(this);
         removeChildOriginalHelper(this, child);
       }
 
@@ -574,7 +566,8 @@
         }
       } else {
         ensureSameOwnerDocument(this, newChild);
-        clearChildNodes(this);
+        if (this.firstChild_ !== undefined)
+          clearChildNodes(this);
         this.visualReplaceChild_(newChild, oldChild);
       }
 

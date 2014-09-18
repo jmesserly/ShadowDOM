@@ -123,6 +123,7 @@
       var registrations = registrationsTable.get(node);
       if (!registrations)
         continue;
+
       for (var j = 0; j < registrations.length; j++) {
         var registration = registrations[j];
         var options = registration.options;
