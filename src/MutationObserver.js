@@ -112,12 +112,12 @@
 
   // http://dom.spec.whatwg.org/#queue-a-mutation-record
   function enqueueMutation(target, type, data) {
-    // This doesn't match the spec algorithm exactly. It has been optimized
-    // a bit using some of the same tricks as Blink. It should still implement
-    // the same behavior as the spec describes, though.
+    // The implementation here has some optimizations which aren't described in
+    // the line-by-line reading of the spec. It should still implement the
+    // specified behavior, though.
 
-    var interestedObservers = Object.create(null);
-    var observeOldValue = Object.create(null);
+    var interestedObservers;
+    var observeOldValue;
 
     for (var node = target; node; node = node.parentNode) {
       var registrations = registrationsTable.get(node);
@@ -127,28 +127,33 @@
       for (var j = 0; j < registrations.length; j++) {
         var registration = registrations[j];
         var options = registration.options;
+
         if (node !== target && !options.subtree)
           continue;
 
-        if (type === 'attributes' && !options.attributes)
-          continue;
-
-        // If type is "attributes", options's attributeFilter is present, and
-        // either options's attributeFilter does not contain name or namespace
-        // is non-null, continue.
-        if (type === 'attributes' && options.attributeFilter &&
-            (data.namespace !== null ||
-             options.attributeFilter.indexOf(data.name) === -1)) {
-          continue;
+        if (type === 'childList') {
+          if (!options.childList)
+            continue;
+        } else if (type === 'characterData') {
+          if (!options.characterData)
+            continue;
+        } else if (type === 'attributes') {
+          if (!options.attributes)
+            continue;
+          // If type is "attributes", options's attributeFilter is present,
+          // and either options's attributeFilter does not contain name or
+          // namespace is non-null, continue.
+          if (options.attributeFilter &&
+              (data.namespace !== null ||
+               options.attributeFilter.indexOf(data.name) === -1)) {
+            continue;
+          }
         }
 
-        if (type === 'characterData' && !options.characterData)
-          continue;
-
-        if (type === 'childList' && !options.childList)
-          continue;
-
         var observer = registration.observer;
+        if (!interestedObservers) {
+          interestedObservers = Object.create(null);
+        }
         interestedObservers[observer.uid_] = observer;
 
         // If either type is "attributes" and options's attributeOldValue is
@@ -157,6 +162,9 @@
         // interested observers to oldValue.
         if (type === 'attributes' && options.attributeOldValue ||
             type === 'characterData' && options.characterDataOldValue) {
+          if (!observeOldValue) {
+            observeOldValue = Object.create(null);
+          }
           observeOldValue[observer.uid_] = true;
         }
       }
@@ -166,13 +174,16 @@
     var sharedRecord;
     var oldValueRecord;
 
+    if (!interestedObservers)
+      return;
+
     for (var uid in interestedObservers) {
       var observer = interestedObservers[uid];
 
       // We reuse record instances. Blink does this optimization too.
       // TODO(jmesserly): ideally ours would be immutable too.
       var record;
-      if (observeOldValue[uid]) {
+      if (observeOldValue && observeOldValue[uid]) {
         if (!oldValueRecord) {
           oldValueRecord = new MutationRecord(type, target, data, true);
         }
