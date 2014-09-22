@@ -110,6 +110,52 @@
     }
   }
 
+  function getAllRegistrations(node) {
+    var result = registrationsCache.get(node);
+    if (result !== undefined)
+      return result;
+
+    var selfRegistrations = registrationsTable.get(node);
+
+    var parent = node.parentNode;
+    var parentRegistrations = parent ? getAllRegistrations(parent) : null;
+
+    // TODO(jmesserly): there's no need to return parentNode observer
+    // registrations that don't listen on subtrees. We could filter those
+    // out point.
+
+    // It's important not to mutate selfRegistrations or parentRegistrations
+    // here, as that's from registrationsTable which is the actual source of
+    // truth about what the real registrations are for a given node.
+    if (selfRegistrations) {
+      result = selfRegistrations;
+      if (parentRegistrations) {
+        result = result.concat(parentRegistrations);
+      }
+    } else {
+      result = parentRegistrations;
+    }
+
+    registrationsCache.set(node, result);
+    return result;
+  }
+
+  function clearObserverRegistrations(node) {
+    if (registrationsCache.has(node)) {
+      registrationsCache.delete(node);
+
+      for (var child = node.firstChild; child; child = child.nextSibling) {
+        clearObserverRegistrations(child);
+      }
+    }
+  }
+
+  // This is invalidated when a new observer changes, or when a node with
+  // cached information is removed from the tree. The goal is to speed up
+  // typical tree construction by providing an O(1) lookup of observers, without
+  // slowing down either insert or removal by pushing around observer info.
+  var registrationsCache = new WeakMap();
+
   // http://dom.spec.whatwg.org/#queue-a-mutation-record
   function enqueueMutation(target, type, data) {
     // The implementation here has some optimizations which aren't described in
@@ -119,54 +165,52 @@
     var interestedObservers;
     var observeOldValue;
 
-    for (var node = target; node; node = node.parentNode) {
-      var registrations = registrationsTable.get(node);
-      if (!registrations)
+    var registrations = getAllRegistrations(target);
+    if (!registrations)
+      return;
+
+    for (var i = 0; i < registrations.length; i++) {
+      var registration = registrations[i];
+      var options = registration.options;
+
+      if (!options.subtree && target !== registration.target)
         continue;
 
-      for (var j = 0; j < registrations.length; j++) {
-        var registration = registrations[j];
-        var options = registration.options;
+      if (type === 'childList' && !options.childList)
+        continue;
 
-        if (node !== target && !options.subtree)
+      if (type === 'characterData' && !options.characterData)
+        continue;
+
+      if (type === 'attributes') {
+        if (!options.attributes)
           continue;
-
-        if (type === 'childList') {
-          if (!options.childList)
-            continue;
-        } else if (type === 'characterData') {
-          if (!options.characterData)
-            continue;
-        } else if (type === 'attributes') {
-          if (!options.attributes)
-            continue;
-          // If type is "attributes", options's attributeFilter is present,
-          // and either options's attributeFilter does not contain name or
-          // namespace is non-null, continue.
-          if (options.attributeFilter &&
-              (data.namespace !== null ||
-               options.attributeFilter.indexOf(data.name) === -1)) {
-            continue;
-          }
+        // If type is "attributes", options's attributeFilter is present,
+        // and either options's attributeFilter does not contain name or
+        // namespace is non-null, continue.
+        if (options.attributeFilter &&
+            (data.namespace !== null ||
+             options.attributeFilter.indexOf(data.name) === -1)) {
+          continue;
         }
+      }
 
-        var observer = registration.observer;
-        if (!interestedObservers) {
-          interestedObservers = Object.create(null);
-        }
-        interestedObservers[observer.uid_] = observer;
+      var observer = registration.observer;
+      if (!interestedObservers) {
+        interestedObservers = Object.create(null);
+      }
+      interestedObservers[observer.uid_] = observer;
 
-        // If either type is "attributes" and options's attributeOldValue is
-        // true, or type is "characterData" and options's characterDataOldValue
-        // is true, set the paired string of registered observer's observer in
-        // interested observers to oldValue.
-        if (type === 'attributes' && options.attributeOldValue ||
-            type === 'characterData' && options.characterDataOldValue) {
-          if (!observeOldValue) {
-            observeOldValue = Object.create(null);
-          }
-          observeOldValue[observer.uid_] = true;
+      // If either type is "attributes" and options's attributeOldValue is
+      // true, or type is "characterData" and options's characterDataOldValue
+      // is true, set the paired string of registered observer's observer in
+      // interested observers to oldValue.
+      if (type === 'attributes' && options.attributeOldValue ||
+          type === 'characterData' && options.characterDataOldValue) {
+        if (!observeOldValue) {
+          observeOldValue = Object.create(null);
         }
+        observeOldValue[observer.uid_] = true;
       }
     }
 
@@ -290,11 +334,19 @@
           registration.removeTransientObservers();
           // 6.2.
           registration.options = newOptions;
+          // Each node can only have one registered observer associated with
+          // this observer.
+          break;
         }
       }
 
       // 7.
       if (!registration) {
+        // Adding an observer invalidates the cache
+        // TODO(jmesserly): we should only need to clear the subtree of target
+        // if either the new or old registration had a subtree.
+        clearObserverRegistrations(target);
+
         registration = new Registration(this, target, newOptions);
         registrations.push(registration);
         this.nodes_.push(target);
@@ -359,6 +411,8 @@
       // We know that registrations does not contain this because we already
       // checked if node === this.target.
       registrations.push(this);
+
+      clearObserverRegistrations(node);
     },
 
     removeTransientObservers: function() {
@@ -382,6 +436,7 @@
 
   window.MutationObserver = MutationObserver;
 
+  scope.clearObserverRegistrations = clearObserverRegistrations;
   scope.enqueueMutation = enqueueMutation;
   scope.registerTransientObservers = registerTransientObservers;
   scope.wrappers.MutationObserver = MutationObserver;

@@ -10,7 +10,6 @@
   var mixin = scope.mixin;
 
   copyProperty(CharacterData, 'data', 'originalData_');
-  copyProperty(CharacterData, 'data', 'textContent');
 
   mixin(CharacterData.prototype, {
     get data() {
@@ -24,5 +23,7 @@
       this.originalData_ = value;
     }
   }, scope.ChildNodeInterface);
+
+  copyProperty(CharacterData, 'data', 'textContent');
 
 })(window.ShadowDOMPolyfill);

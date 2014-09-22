@@ -11,6 +11,7 @@
   var NodeList = scope.wrappers.NodeList;
   var TreeScope = scope.TreeScope;
   var assert = scope.assert;
+  var clearObserverRegistrations = scope.clearObserverRegistrations;
   var copyProperty = scope.copyProperty;
   var enqueueMutation = scope.enqueueMutation;
   var getTreeScope = scope.getTreeScope;
@@ -151,6 +152,7 @@
 
   // http://dom.spec.whatwg.org/#node-is-removed
   function nodeWasRemoved(node) {
+    clearObserverRegistrations(node);
     setTreeScope(node, null);
   }
 
