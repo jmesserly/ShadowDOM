@@ -15,6 +15,7 @@
   });
 
   [
+    "dom-accessors/src/dom-accessors.js",
     "../observe-js/src/observe.js",
     "../WeakMap/weakmap.js",
     "src/wrappers.js",

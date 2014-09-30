@@ -111,7 +111,7 @@
 
       default:
         console.error(node);
-        throw new Error('not implemented');
+        throw new Error('not implemented node type: ' + node.nodeType);
     }
   }
 
