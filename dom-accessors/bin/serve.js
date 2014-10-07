@@ -95,7 +95,6 @@ function applyEdits(text, edits) {
   return out;
 }
 
-
 // Replaces the property names when they appear as identifiers.
 function rewritePropertyNames(text) {
   var tokens = esprima.tokenize(text, { tolerant: true, range: true })
@@ -127,6 +126,7 @@ function transform(path, text, send) {
   send(text, {'Content-Type': 'application/javascript'});
 }
 
+// TODO(jmesserly): need to transform inline script tags in HTML too.
 var dir = process.cwd();
 connect()
     .use(serveTransform({

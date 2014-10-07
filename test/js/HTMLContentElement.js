@@ -6,6 +6,7 @@
 
 suite('HTMLContentElement', function() {
   var unwrap = ShadowDOMPolyfill.unwrap;
+  var HTMLContentElement = window.HTMLContentElement || HTMLUnknownElement;
 
   test('select', function() {
     var el = document.createElement('content');

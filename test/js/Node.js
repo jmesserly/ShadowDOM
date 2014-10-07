@@ -254,7 +254,7 @@ suite('Node', function() {
     var div = document.createElement('div');
     assert.instanceOf(div, HTMLElement);
     assert.instanceOf(div, Element);
-    assert.instanceOf(div, EventTarget);
+    assertEventTarget(div);
   });
 
   test('cloneNode(false)', function() {

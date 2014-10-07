@@ -5,10 +5,9 @@
  */
 
 suite('HTMLShadowElement', function() {
+  var HTMLShadowElement = window.HTMLShadowElement || HTMLUnknownElement;
 
   test('instanceof HTMLShadowElement', function() {
-    var HTMLShadowElement = window.HTMLShadowElement ||
-        window.HTMLUnknownElement;
 
     var host = document.createElement('div');
     host.innerHTML = '<a>a</a><b>b</b>';

@@ -60,53 +60,17 @@ A polyfill to provide Shadow DOM functionality in browsers that don't
 support it natively. This section explains how a proper (native) implementation
 differs from our polyfill implementation.
 
-### Wrappers
+### Wrapperless
 
-The polyfill is implemented using _wrappers_. A wrapper wraps the native DOM node in a wrapper node. The wrapper node looks and behaves identical to the native node (minus bugs and known limitations). For example:
+The polyfill does not wrap objects, but it does patch methods and accessors.
 
-    var div = document.createElement('div');
-    div.innerHTML = '<b>Hello world</b>';
-    assert(div.firstChild instanceof HTMLElement);
+For example the `innerHTML` setter works just like the native `innerHTML` but it instead of working on the composed tree it works on the local DOM. When you change the logical DOM tree like this it might cause the composed tree to need to be re-rendered. This does not happen immediately, but it is scheduled to happen later as needed.
 
-But `div` is actually a wrapper of the element that the browser normally gives you. This wrapper just happen to have the same interface as the browser provided element.
-
-It has an `innerHTML` setter that works just like the native `innerHTML` but it instead of working on the composed tree it works on the local DOM. When you change the logical DOM tree like this it might cause the composed tree to need to be re-rendered. This does not happen immediately, but it is scheduled to happen later as needed.
-
-The wrapper node also have a `firstChild` getter which once again works on the logical DOM.
-
-`instanceof` still works because we have replaced the global `HTMLElement` constructor with our custom one.
+The `firstChild` getter also works against the logical DOM.
 
 #### More Logical DOM
 
-The `wrappers.Node` object keeps track of the logical (light as well as shadow, but not composed) DOM. Internally it has has the 5 fundamental Node pointers, `parentNode`, `firstChild`, `lastChild`, `nextSibling` and `previousSibling`. When the DOM tree is manipulated these pointers are updated to always represent the logical tree. When the shadow DOM renderer needs to render the visual tree, these internal pointers are updated as needed.
-
-#### Wrap all the objects!
-
-The intent is to wrap all the DOM objects that interact with the DOM tree. For this polyfill to be completely transparent we need to wrap a lot of APIs. Any method, accessor or constructor that takes or returns a Node or an object that indirectly touches a node needs to be wrapped. As you can imagine there are a lot of these. At the moment we have done the most common ones but there are sure to be missing ones as soon as you try to use this with your code.
-
-### `wrap` and `unwrap`
-
-There are bound to be cases where we haven't done the wrapping for you. In those cases you can use `wrap` to create a wrapper of a native object, or `unwrap` to get the underlying native object from a wrapper. These two functions are available on the `ShadowDOMPolyfill` object.
-
-ex:
-
-    wrap(document.body)
-    // or get body of the wrapped document
-    wrap(document).body
-
-    unwrap(div).firstChild instanceof HTMLElement
-
-If you plan to work with elements that need to be wrapped over and over, try passing a wrapped version of the element into an immediately-invoked function expression.
-
-    (function(document) {
-      
-      // Now a library like jQuery can add
-      // listeners to the wrapped document
-      $(document).on('click', function(e) {
-        console.log('Clicked on', e.target);
-      });
-
-    })(wrap(document));
+Internally each Node has has the 5 fundamental Node pointers, `parentNode`, `firstChild`, `lastChild`, `nextSibling` and `previousSibling`. When the DOM tree is manipulated these pointers are updated to always represent the logical tree. When the shadow DOM renderer needs to render the visual tree, these internal pointers are updated as needed.
 
 #### Event Retargetting
 
@@ -126,8 +90,16 @@ To support this kind of behavior the event dispatching in the browser has to be 
 #### Known limitations
 
 * CSS encapsulation is limited.
-* `Object.prototype.toString` does not return the same string as for native objects.
 * No live `NodeList`s. All node lists are snapshotted upon read.
-* `document`, `window`, `document.body`, `document.head` and others are non configurable and cannot be overridden. We are trying to make these work as seamlessly as possible but there will doubtlessly be cases where there will be problems; for those cases you can use `wrap` and `unwrap` to get unblocked.
-* Cross window/frame access is not implemented.
 * CSS `:host()` rules can only have (at most) 1-level of nested parentheses in its argument selector. For example, `:host(.zot)` and `:host(.zot:not(.bar))` both work, but `:host(.zot:not(.bar:nth-child(2)))` does not.
+
+#### Current browser support
+
+* All tests passing in latest Firefox
+* Core functionality works in IE 11, but there are test failures
+* 95% tests passing in Safari 7. Note that Safari needs the dom-accessors.js
+  transpiler and polyfill, because its DOM properties cannot be properly
+  reconfigured.
+
+
+

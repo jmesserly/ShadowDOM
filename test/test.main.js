@@ -82,6 +82,17 @@ function isIE() {
   return /Trident/.test(navigator.userAgent);
 }
 
+
+// Safari does not have event target, so approximate using addEventListener.
+function assertEventTarget(e) {
+  if (window.EventTarget) {
+    assert.instanceOf(e, EventTarget);
+  } else {
+    assert.instanceOf(e, Object);
+    assert.isDefined(e.addEventListener);
+  }
+}
+
 mocha.setup({
   ui: 'tdd',
   globals: ['console', 'getInterface']
