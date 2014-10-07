@@ -41,7 +41,7 @@ suite('HTMLImageElement', function() {
 
   test('Image called as function', function() {
     if (!isIE())
-      assert.throws(Image, TypeError);
+      assert.throws(function() { Image(); }, TypeError);
   });
 
   test('Image basics', function() {

@@ -39,7 +39,7 @@ suite('HTMLAudioElement', function() {
 
   test('Audio called as function', function() {
     if (!isIE())
-      assert.throws(Audio, TypeError);
+      assert.throws(function() { Audio(); }, TypeError);
   });
 
   test('Audio basics', function() {

@@ -72,7 +72,7 @@ suite('HTMLOptionElement', function() {
 
   test('Option called as function', function() {
     if (!isIE())
-        assert.throws(Option, TypeError);
+        assert.throws(function() { Option(); }, TypeError);
   });
 
   test('Option basics', function() {
