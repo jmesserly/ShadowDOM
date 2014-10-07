@@ -23,20 +23,19 @@
 
   var properties = Object.create(null);
   function accessor(name, proto, getter, setter) {
+    var prefixedName = PREFIX + name;
+    descriptor.get = getter;
+    descriptor.set = setter;
     if (proto instanceof Array) {
       for (var i = 0; i < proto.length; i++) {
-        accessor(name, proto[i], getter, setter);
+        defineProperty(proto[i], prefixedName, descriptor);
       }
-      return;
-    }
-
-    var prefixedName = PREFIX + name;
-    if (getter || setter) {
-      descriptor.get = getter;
-      descriptor.set = setter;
-
+    } else {
       defineProperty(proto, prefixedName, descriptor);
     }
+    // Define a catch-all on Object.prototype, so we never get stuck with
+    // a call to the prefixed name that didn't redirect.
+    defineProperty(Object.prototype, prefixedName, descriptor);
     properties[name] = prefixedName;
   }
 
