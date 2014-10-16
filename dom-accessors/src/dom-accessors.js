@@ -3,6 +3,12 @@
 // license that can be found in the LICENSE file.
 
 (function() {
+
+  // If we aren't transformed, bail.
+  if (!document.__raw$childNodes) {
+    return;
+  }
+
   var defineProperty = Object.defineProperty;
   var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
 
