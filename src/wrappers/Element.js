@@ -6,7 +6,6 @@
   'use strict';
 
   var DOMTokenList = scope.wrappers.DOMTokenList;
-  var enqueueMutation = scope.enqueueMutation;
   var mixin = scope.mixin;
   var oneOf = scope.oneOf;
 
@@ -30,17 +29,6 @@
     var renderer = scope.getRendererForHost(p);
     if (renderer.dependsOnAttribute(name))
       renderer.invalidate();
-  }
-
-  function enqueAttributeChange(element, name, oldValue) {
-    // This is not fully spec compliant. We should use localName (which might
-    // have a different case than name) and the namespace (which requires us
-    // to get the Attr object).
-    enqueueMutation(element, 'attributes', {
-      name: name,
-      namespace: null,
-      oldValue: oldValue
-    });
   }
 
   // Note: check HTMLElement because IE has them there
@@ -91,16 +79,12 @@
     originalMatches_: Element.prototype[matchesName],
     
     setAttribute: function(name, value) {
-      var oldValue = this.originalGetAttribute_(name);
       this.originalSetAttribute_(name, value);
-      enqueAttributeChange(this, name, oldValue);
       invalidateRendererBasedOnAttribute(this, name);
     },
 
     removeAttribute: function(name) {
-      var oldValue = this.originalGetAttribute_(name);
       this.originalRemoveAttribute_(name);
-      enqueAttributeChange(this, name, oldValue);
       invalidateRendererBasedOnAttribute(this, name);
     },
 

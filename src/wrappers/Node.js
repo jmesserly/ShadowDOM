@@ -10,11 +10,8 @@
   var EventTarget = scope.wrappers.EventTarget;
   var NodeList = scope.wrappers.NodeList;
   var assert = scope.assert;
-  var clearObserverRegistrations = scope.clearObserverRegistrations;
   var copyProperty = scope.copyProperty;
-  var enqueueMutation = scope.enqueueMutation;
   var mixin = scope.mixin;
-  var registerTransientObservers = scope.registerTransientObservers;
   var wrappers = scope.wrappers;
 
   var emptyNodeList = new NodeList();
@@ -24,29 +21,6 @@
     nodes[0] = node;
     nodes.length = 1;
     return nodes;
-  }
-
-  var surpressMutations = false;
-
-  /**
-   * Called before node is inserted into a node to enqueue its removal from its
-   * old parent.
-   * @param {!Node} node The node that is about to be removed.
-   * @param {!Node} parent The parent node that the node is being removed from.
-   * @param {!NodeList} nodes The collected nodes.
-   */
-  function enqueueRemovalForInsertedNodes(node, parent, nodes) {
-    enqueueMutation(parent, 'childList', {
-      removedNodes: nodes,
-      previousSibling: node.previousSibling,
-      nextSibling: node.nextSibling
-    });
-  }
-
-  function enqueueRemovalForInsertedDocumentFragment(df, nodes) {
-    enqueueMutation(df, 'childList', {
-      removedNodes: nodes
-    });
   }
 
   /**
@@ -60,12 +34,10 @@
       var nodes = collectNodesForDocumentFragment(node);
 
       // The extra loop is to work around bugs with DocumentFragments in IE.
-      surpressMutations = true;
       for (var i = nodes.length - 1; i >= 0; i--) {
         node.removeChild(nodes[i]);
         nodes[i].parentNode_ = parentNode;
       }
-      surpressMutations = false;
 
       for (var i = 0; i < nodes.length; i++) {
         nodes[i].previousSibling_ = nodes[i - 1] || previousNode;
@@ -98,17 +70,6 @@
     return nodes;
   }
 
-  function collectNodesNative(node) {
-    if (node instanceof DocumentFragment)
-      return collectNodesForDocumentFragment(node);
-
-    var nodes = createOneElementNodeList(node);
-    var oldParent = node.parentNode;
-    if (oldParent)
-      enqueueRemovalForInsertedNodes(node, oldParent, nodes);
-    return nodes;
-  }
-
   function collectNodesForDocumentFragment(node) {
     var nodes = new NodeList();
     var i = 0;
@@ -116,7 +77,6 @@
       nodes[i++] = child;
     }
     nodes.length = i;
-    enqueueRemovalForInsertedDocumentFragment(node, nodes);
     return nodes;
   }
 
@@ -125,18 +85,16 @@
     return nodeList;
   }
 
-  // http://dom.spec.whatwg.org/#node-is-removed
-  function nodeWasRemoved(node) {
-    clearObserverRegistrations(node);
-    if (node.ownerShadowRoot_) node.ownerShadowRoot_ = null;
-    for (var c = node.firstChild; c; c = c.nextSibling) {
-      nodeWasRemoved(c);
+  function nodesWereRemoved(nodeList) {
+    for (var i = 0, len = nodeList.length; i < len; i++) {
+      nodeWasRemoved(nodeList[i]);
     }
   }
 
-  function nodesWereRemoved(nodes) {
-    for (var i = 0; i < nodes.length; i++) {
-      nodeWasRemoved(nodes[i]);
+  function nodeWasRemoved(node) {
+    node.ownerShadowRoot_ = null;
+    for (var c = node.firstChild; c; c = c.nextSibling) {
+      nodeWasRemoved(c);
     }
   }
 
@@ -175,7 +133,6 @@
     }
     return df;
   }
-
 
   function clearChildNodes(node) {
     var child = node.firstChild_;
@@ -358,7 +315,9 @@
     },
 
     set textContent(textContent) {
-      var removedNodes = snapshotNodeList(this.childNodes);
+      var root = this.ownerShadowRoot_;
+      var removedNodes;
+      if (root) removedNodes = snapshotNodeList(this.childNodes);
 
       if (this.invalidateShadowRenderer_()) {
         removeAllChildNodes(this);
@@ -371,16 +330,10 @@
         this.visualTextContent_ = textContent;
       }
 
-      var addedNodes = snapshotNodeList(this.childNodes);
-
-      enqueueMutation(this, 'childList', {
-        addedNodes: addedNodes,
-        removedNodes: removedNodes
-      });
-
-      nodesWereRemoved(removedNodes);
-      var root = this.ownerShadowRoot_;
-      if (root) root.nodesWereAdded_(addedNodes);
+      if (root) {
+        nodesWereRemoved(removedNodes);
+        root.nodesWereAdded_(this.childNodes);
+      }
     },
 
     cloneNode: function(deep) {
@@ -396,29 +349,33 @@
     },
 
     insertBefore: function(child, refNode) {
-      refNode && assert(refNode.parentNode === this);
-
-      var nodes;
-      var previousNode =
-          refNode ? refNode.previousSibling : this.lastChild;
-
       var useNative = !this.invalidateShadowRenderer_() &&
                       !invalidateParent(child);
 
+      var nodes;
       if (useNative) {
-        nodes = collectNodesNative(child);
+        if (child instanceof DocumentFragment) {
+          nodes = collectNodesForDocumentFragment(child);
+        }
+
         ensureSameOwnerDocument(this, child);
-        if (this.firstChild_ !== undefined)
+        if (this.firstChild_ !== undefined) {
           clearChildNodes(this);
+        }
         this.visualInsertBefore_(child, refNode);
       } else {
+        var previousNode =
+            refNode ? refNode.previousSibling : this.lastChild;
+
         nodes = collectNodes(child, this, previousNode, refNode);
-        if (!previousNode)
+        if (!previousNode) {
           this.firstChild_ = nodes[0];
+        }
         if (!refNode) {
           this.lastChild_ = nodes[nodes.length - 1];
-          if (this.firstChild_ === undefined)
+          if (this.firstChild_ === undefined) {
             this.firstChild_ = this.firstChild;
+          }
         }
 
         var parentNode = refNode ? refNode.visualParentNode_ : this;
@@ -432,14 +389,14 @@
         }
       }
 
-      enqueueMutation(this, 'childList', {
-        addedNodes: nodes,
-        nextSibling: refNode,
-        previousSibling: previousNode
-      });
-
       var root = this.ownerShadowRoot_;
-      if (root) root.nodesWereAdded_(nodes);
+      if (root) {
+        if (nodes) {
+          root.nodesWereAdded_(nodes);
+        } else {
+          root.nodeWasAdded_(child);
+        }
+      }
 
       return child;
     },
@@ -495,17 +452,9 @@
         removeChildOriginalHelper(this, child);
       }
 
-      if (!surpressMutations) {
-        enqueueMutation(this, 'childList', {
-          removedNodes: createOneElementNodeList(child),
-          nextSibling: childNextSibling,
-          previousSibling: childPreviousSibling
-        });
+      if (this.ownerShadowRoot_) {
+        nodeWasRemoved(child);
       }
-
-      registerTransientObservers(this, child);
-
-      nodeWasRemoved(child);
 
       return child;
     },
@@ -516,26 +465,33 @@
         throw new Error('NotFoundError');
       }
 
-      var nextNode = oldChild.nextSibling;
-      var previousNode = oldChild.previousSibling;
-      var nodes;
-
       var useNative = !this.invalidateShadowRenderer_() &&
                       !invalidateParent(newChild);
-
+      
+      var nodes;
       if (useNative) {
-        nodes = collectNodesNative(newChild);
-      } else {
+        if (newChild instanceof DocumentFragment) {
+          nodes = collectNodesForDocumentFragment(newChild);
+        }
+        ensureSameOwnerDocument(this, newChild);
+        if (this.firstChild_ !== undefined) {
+          clearChildNodes(this);
+        }
+        this.visualReplaceChild_(newChild, oldChild);
+      } else {      
+        var nextNode = oldChild.nextSibling;
+        var previousNode = oldChild.previousSibling;
+
         if (nextNode === newChild)
           nextNode = newChild.nextSibling;
         nodes = collectNodes(newChild, this, previousNode, nextNode);
-      }
 
-      if (!useNative) {
-        if (this.firstChild === oldChild)
+        if (this.firstChild === oldChild) {
           this.firstChild_ = nodes[0];
-        if (this.lastChild === oldChild)
+        }
+        if (this.lastChild === oldChild) {
           this.lastChild_ = nodes[nodes.length - 1];
+        }
 
         oldChild.previousSibling_ = oldChild.nextSibling_ =
             oldChild.parentNode_ = undefined;
@@ -546,23 +502,17 @@
               prepareNodesForInsertion(this, nodes),
               oldChild);
         }
-      } else {
-        ensureSameOwnerDocument(this, newChild);
-        if (this.firstChild_ !== undefined)
-          clearChildNodes(this);
-        this.visualReplaceChild_(newChild, oldChild);
       }
 
-      enqueueMutation(this, 'childList', {
-        addedNodes: nodes,
-        removedNodes: createOneElementNodeList(oldChild),
-        nextSibling: nextNode,
-        previousSibling: previousNode
-      });
-
-      nodeWasRemoved(oldChild);
       var root = this.ownerShadowRoot_;
-      if (root) root.nodeWasAdded_(newChild);
+      if (root) {
+        nodeWasRemoved(oldChild);
+        if (nodes) {
+          root.nodesWereAdded_(nodes);
+        } else {
+          root.nodeWasAdded_(newChild);
+        }
+      }
 
       return oldChild;
     },
@@ -607,7 +557,6 @@
   });
 
   scope.cloneNode = cloneNode;
-  scope.nodesWereRemoved = nodesWereRemoved;
   scope.snapshotNodeList = snapshotNodeList;
   scope.copyProperty = copyProperty;
   scope.Node = Node;

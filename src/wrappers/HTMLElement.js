@@ -8,7 +8,6 @@
   var Element = scope.wrappers.Element;
   var HTMLTemplateElement = window.HTMLTemplateElement;
   var defineGetter = scope.defineGetter;
-  var enqueueMutation = scope.enqueueMutation;
   var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
   var mixin = scope.mixin;
   var nodesWereRemoved = scope.nodesWereRemoved;
@@ -184,7 +183,9 @@
         return;
       }
 
-      var removedNodes = snapshotNodeList(this.childNodes);
+      var root = this.ownerShadowRoot_;
+      var removedNodes;
+      if (root) removedNodes = snapshotNodeList(this.childNodes);
 
       if (this.invalidateShadowRenderer_()) {
         if (this.localName == 'template')
@@ -201,16 +202,10 @@
         this.visualInnerHTML_ = value;
       }
 
-      var addedNodes = snapshotNodeList(this.childNodes);
-
-      enqueueMutation(this, 'childList', {
-        addedNodes: addedNodes,
-        removedNodes: removedNodes
-      });
-
-      nodesWereRemoved(removedNodes);
-      var root = this.ownerShadowRoot_;
-      if (root) root.nodesWereAdded_(addedNodes);
+      if (root) {
+        nodesWereRemoved(removedNodes);
+        root.nodesWereAdded_(this.childNodes);
+      }
     },
 
     get outerHTML() {

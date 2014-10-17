@@ -9,20 +9,7 @@
   var enqueueMutation = scope.enqueueMutation;
   var mixin = scope.mixin;
 
-  copyProperty(CharacterData, 'data', 'originalData_');
-
-  mixin(CharacterData.prototype, {
-    get data() {
-      return this.originalData_;
-    },
-    set data(value) {
-      var oldValue = this.originalData_;
-      enqueueMutation(this, 'characterData', {
-        oldValue: oldValue
-      });
-      this.originalData_ = value;
-    }
-  }, scope.ChildNodeInterface);
+  mixin(CharacterData.prototype, scope.ChildNodeInterface);
 
   copyProperty(CharacterData, 'data', 'textContent');
 
