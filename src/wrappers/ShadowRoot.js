@@ -5,10 +5,9 @@
 (function(scope) {
   'use strict';
 
-  var TreeScope = scope.TreeScope;
   var elementFromPoint = scope.elementFromPoint;
   var getInnerHTML = scope.getInnerHTML;
-  var getTreeScope = scope.getTreeScope;
+  var isInsertionPoint = scope.isInsertionPoint;
   var mixin = scope.mixin;
   var setInnerHTML = scope.setInnerHTML;
 
@@ -26,7 +25,7 @@
     var oldShadowRoot = host.shadowRoot;
     nextOlderShadowTreeTable.set(self, oldShadowRoot);
 
-    self.treeScope_ = new TreeScope(self, getTreeScope(oldShadowRoot || host));
+    self.ownerShadowRoot_ = self;
 
     shadowHostTable.set(self, host);
     return self;
@@ -63,6 +62,34 @@
       if (spaceCharRe.test(id))
         return null;
       return this.querySelector('[id="' + id + '"]');
+    },
+
+    /**
+     * Called after nodes are inserted.
+     * @private
+     */
+    nodesWereAdded_: function(nodes) {
+      for (var i = 0; i < nodes.length; i++) {
+        this.nodeWasAdded_(nodes[i]);
+      }
+    },
+
+    nodeWasAdded_: function(node) {
+      node.ownerShadowRoot_ = this;
+
+      var name = node.localName;
+      if (name == 'content' || name == 'shadow') {
+        // Invalidate old renderer if any.
+        node.invalidateShadowRenderer_();
+
+        var renderer = scope.getRendererForHost(this.host);
+        node.polymerShadowRenderer_ = renderer;
+        renderer.invalidate();
+      }
+
+      for (var c = node.firstChild; c; c = c.nextSibling) {
+        this.nodeWasAdded_(c);
+      }
     }
   });
 

@@ -9,15 +9,12 @@
 
   var EventTarget = scope.wrappers.EventTarget;
   var NodeList = scope.wrappers.NodeList;
-  var TreeScope = scope.TreeScope;
   var assert = scope.assert;
   var clearObserverRegistrations = scope.clearObserverRegistrations;
   var copyProperty = scope.copyProperty;
   var enqueueMutation = scope.enqueueMutation;
-  var getTreeScope = scope.getTreeScope;
   var mixin = scope.mixin;
   var registerTransientObservers = scope.registerTransientObservers;
-  var setTreeScope = scope.setTreeScope;
   var wrappers = scope.wrappers;
 
   var emptyNodeList = new NodeList();
@@ -128,32 +125,13 @@
     return nodeList;
   }
 
-  // http://dom.spec.whatwg.org/#node-is-inserted
-  function nodesWereAdded(nodes, parent) {
-    var treeScope;
-    for (var i = 0; i < nodes.length; i++) {
-      var node = nodes[i];
-
-      // Note: pushing down the treeScope can be expensive, so we try and do
-      // it as lazily as possible.
-      if (node.treeScope_) {
-        // TODO(jmesserly): it would be nice to just clear the existing
-        // TreeScope and let it be lazily restored later. But TreeScope.parent
-        // is not looked up dynamically, so we need (for now) to get the real
-        // tree scope of ourselves and push it down.
-        if (treeScope === undefined) {
-          treeScope = getTreeScope(parent);
-        }
-        setTreeScope(node, treeScope);
-      }
-      node.nodeIsInserted_();
-    }
-  }
-
   // http://dom.spec.whatwg.org/#node-is-removed
   function nodeWasRemoved(node) {
     clearObserverRegistrations(node);
-    setTreeScope(node, null);
+    if (node.ownerShadowRoot_) node.ownerShadowRoot_ = null;
+    for (var c = node.firstChild; c; c = c.nextSibling) {
+      nodeWasRemoved(c);
+    }
   }
 
   function nodesWereRemoved(nodes) {
@@ -264,7 +242,7 @@
   }
 
   function contains(self, child) {
-    if (!child || getTreeScope(self) !== getTreeScope(child))
+    if (!child || self.ownerShadowRoot_ !== child.ownerShadowRoot_)
       return false;
 
     for (var node = child; node; node = node.parentNode) {
@@ -401,7 +379,8 @@
       });
 
       nodesWereRemoved(removedNodes);
-      nodesWereAdded(addedNodes, this);
+      var root = this.ownerShadowRoot_;
+      if (root) root.nodesWereAdded_(addedNodes);
     },
 
     cloneNode: function(deep) {
@@ -459,7 +438,8 @@
         previousSibling: previousNode
       });
 
-      nodesWereAdded(nodes, this);
+      var root = this.ownerShadowRoot_;
+      if (root) root.nodesWereAdded_(nodes);
 
       return child;
     },
@@ -581,7 +561,8 @@
       });
 
       nodeWasRemoved(oldChild);
-      nodesWereAdded(nodes, this);
+      var root = this.ownerShadowRoot_;
+      if (root) root.nodeWasAdded_(newChild);
 
       return oldChild;
     },
@@ -623,21 +604,9 @@
       }
     },
 
-    /**
-     * Called after a node was inserted. Subclasses override this to invalidate
-     * the renderer as needed.
-     * @private
-     */
-    nodeIsInserted_: function() {
-      for (var child = this.firstChild; child; child = child.nextSibling) {
-        child.nodeIsInserted_();
-      }
-    }
-    
   });
 
   scope.cloneNode = cloneNode;
-  scope.nodesWereAdded = nodesWereAdded;
   scope.nodesWereRemoved = nodesWereRemoved;
   scope.snapshotNodeList = snapshotNodeList;
   scope.copyProperty = copyProperty;

@@ -6,7 +6,8 @@
   'use strict';
 
   var copyProperty = scope.copyProperty;
-  var getTreeScope = scope.getTreeScope;
+  var getTreeRoot = scope.getTreeRoot;
+  var getTreeRootParent = scope.getTreeRootParent;
   var mixin = scope.mixin;
   var wrappers = scope.wrappers;
 
@@ -27,10 +28,6 @@
     return node instanceof scope.ShadowRoot;
   }
 
-  function rootOfNode(node) {
-    return getTreeScope(node).root;
-  }
-
   // http://w3c.github.io/webcomponents/spec/shadow/#event-paths
   function getEventPath(node, event) {
     var path = [];
@@ -45,7 +42,7 @@
           var insertionPoint = destinationInsertionPoints[i];
           // 4.1.1.1
           if (isShadowInsertionPoint(insertionPoint)) {
-            var shadowRoot = rootOfNode(insertionPoint);
+            var shadowRoot = insertionPoint.ownerShadowRoot_;
             // 4.1.1.1.2
             var olderShadowRoot = shadowRoot.olderShadowRoot;
             if (olderShadowRoot)
@@ -123,32 +120,32 @@
     if (currentTarget instanceof scope.Window)
       currentTarget = currentTarget.document;
 
-    var currentTargetTree = getTreeScope(currentTarget);
+    var currentTargetTree = getTreeRoot(currentTarget);
     var originalTarget = path[0];
-    var originalTargetTree = getTreeScope(originalTarget);
+    var originalTargetTree = getTreeRoot(originalTarget);
     var relativeTargetTree =
         lowestCommonInclusiveAncestor(currentTargetTree, originalTargetTree);
 
     for (var i = 0; i < path.length; i++) {
       var node = path[i];
-      if (getTreeScope(node) === relativeTargetTree)
+      if (getTreeRoot(node) === relativeTargetTree)
         return node;
     }
 
     return path[path.length - 1];
   }
 
-  function getTreeScopeAncestors(treeScope) {
+  function getTreeRootAncestors(treeScope) {
     var ancestors = [];
-    for (;treeScope; treeScope = treeScope.parent) {
+    for (;treeScope; treeScope = getTreeRootParent(treeScope)) {
       ancestors.push(treeScope);
     }
     return ancestors;
   }
 
   function lowestCommonInclusiveAncestor(tsA, tsB) {
-    var ancestorsA = getTreeScopeAncestors(tsA);
-    var ancestorsB = getTreeScopeAncestors(tsB);
+    var ancestorsA = getTreeRootAncestors(tsA);
+    var ancestorsB = getTreeRootAncestors(tsB);
 
     var result = null;
     while (ancestorsA.length > 0 && ancestorsB.length > 0) {
@@ -168,8 +165,8 @@
     if (currentTarget instanceof scope.Window)
       currentTarget = currentTarget.document;
 
-    var currentTargetTree = getTreeScope(currentTarget);
-    var relatedTargetTree = getTreeScope(relatedTarget);
+    var currentTargetTree = getTreeRoot(currentTarget);
+    var relatedTargetTree = getTreeRoot(relatedTarget);
 
     var relatedTargetEventPath = getEventPath(relatedTarget, event);
 
@@ -181,17 +178,17 @@
 
     // 5
     if (!lowestCommonAncestorTree)
-      lowestCommonAncestorTree = relatedTargetTree.root;
+      lowestCommonAncestorTree = relatedTargetTree;
 
     // 6
     for (var commonAncestorTree = lowestCommonAncestorTree;
          commonAncestorTree;
-         commonAncestorTree = commonAncestorTree.parent) {
+         commonAncestorTree = getTreeRootParent(commonAncestorTree)) {
       // 6.1
       var adjustedRelatedTarget;
       for (var i = 0; i < relatedTargetEventPath.length; i++) {
         var node = relatedTargetEventPath[i];
-        if (getTreeScope(node) === commonAncestorTree)
+        if (getTreeRoot(node) === commonAncestorTree)
           return node;
       }
     }
@@ -200,7 +197,7 @@
   }
 
   function inSameTree(a, b) {
-    return getTreeScope(a) === getTreeScope(b);
+    return getTreeRoot(a) === getTreeRoot(b);
   }
 
   var NONE = 0;
@@ -719,7 +716,7 @@
       return null;
     var path = getEventPath(element, null);
 
-    // scope the path to this TreeScope
+    // scope the path to this tree root
     var idx = path.lastIndexOf(self);
     if (idx == -1)
       return null;

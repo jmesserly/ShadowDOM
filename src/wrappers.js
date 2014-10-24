@@ -113,14 +113,46 @@ window.ShadowDOMPolyfill = {};
     getterDescriptor.get = getter;
     defineProperty(constructor.prototype, name, getterDescriptor);
   }
+
   function copyProperty(ctor, oldName, newName) {
     Object.defineProperty(ctor.prototype, newName,
         Object.getOwnPropertyDescriptor(ctor.prototype, oldName));
   }
 
+  function getTreeRoot(node) {
+    var root = node.ownerShadowRoot_;
+    if (root) return root;
+
+    // TODO(jmesserly): ideally we could return node.ownerDocument, but that
+    // doesn't work for disconnected trees.
+    var parent;
+    while (parent = node.parentNode) {
+      node = parent;
+    }
+    return node;
+  }
+
+  function getTreeRootParent(node) {
+    var root = node.ownerShadowRoot_;
+
+    // Only ShadowRoots have a parent tree scope.
+    // (Documents and disconnected trees do not.)
+    if (!root) return null;
+
+    var old = root.olderShadowRoot;
+    return old ? old : getTreeRoot(root.host);
+  }
+
+  function isInsertionPoint(node) {
+    return node.localName == 'content' || node.localName == 'shadow';
+  }
+
   scope.assert = assert;
   scope.copyProperty = copyProperty;
   scope.defineGetter = defineGetter;
+  scope.getTreeRoot = getTreeRoot;
+  scope.getTreeRootParent = getTreeRootParent;
+  scope.isInsertionPoint = isInsertionPoint;
   scope.isWrapper = isWrapper;
   scope.mixin = mixin;
   scope.oneOf = oneOf;

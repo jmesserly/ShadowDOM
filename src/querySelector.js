@@ -7,7 +7,6 @@
 
   var HTMLCollection = scope.wrappers.HTMLCollection;
   var NodeList = scope.wrappers.NodeList;
-  var getTreeScope = scope.getTreeScope;
 
   var originalDocumentQuerySelector = document.querySelector;
   var originalElementQuerySelector = document.documentElement.querySelector;
@@ -25,10 +24,9 @@
 
   function filterNodeList(list, index, result, deep) {
     var item = null;
-    var root = null;
     for (var i = 0, length = list.length; i < length; i++) {
       item = list[i];
-      if (!deep && getTreeScope(item).root instanceof scope.ShadowRoot) {
+      if (!deep && item.ownerShadowRoot_) {
         continue;
       }
       result[index++] = item;
@@ -102,8 +100,7 @@
 
   function querySelectorAllFiltered(p, index, result, selector, deep) {
     var list;
-    var root = getTreeScope(this).root;
-    if (root instanceof scope.ShadowRoot) {
+    if (this.ownerShadowRoot_) {
       // We are in the shadow tree and the logical tree is
       // going to be disconnected so we do a manual tree traversal
       return findElements(this, index, result, p, selector, null);
@@ -126,8 +123,7 @@
       var deep = shimmed !== selector;
       selector = shimmed;
       var item;
-      var root = getTreeScope(this).root;
-      if (root instanceof scope.ShadowRoot) {
+      if (this.ownerShadowRoot_) {
         // We are in the shadow tree and the logical tree is
         // going to be disconnected so we do a manual tree traversal
         return findOne(this, selector);
@@ -145,7 +141,7 @@
         // When the original query returns nothing
         // we return nothing (to be consistent with the other wrapped calls)
         return item;
-      } else if (!deep && getTreeScope(item).root instanceof scope.ShadowRoot) {
+      } else if (!deep && item.ownerShadowRoot_) {
         // When the original query returns an element in the ShadowDOM
         // we must do a manual tree traversal
         return findOne(this, selector);
@@ -174,8 +170,7 @@
   function getElementsByTagNameFiltered(p, index, result, localName,
                                         lowercase) {
     var list;
-    var root = getTreeScope(this).root;
-    if (root instanceof scope.ShadowRoot) {
+    if (this.ownerShadowRoot_) {
       // We are in the shadow tree and the logical tree is
       // going to be disconnected so we do a manual tree traversal
       return findElements(this, index, result, p, localName, lowercase);
@@ -196,8 +191,7 @@
 
   function getElementsByTagNameNSFiltered(p, index, result, ns, localName) {
     var list;
-    var root = getTreeScope(this).root;
-    if (root instanceof scope.ShadowRoot) {
+    if (this.ownerShadowRoot_) {
       // We are in the shadow tree and the logical tree is
       // going to be disconnected so we do a manual tree traversal
       return findElements(this, index, result, p, ns, localName);

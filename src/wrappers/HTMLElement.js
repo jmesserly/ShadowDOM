@@ -11,7 +11,6 @@
   var enqueueMutation = scope.enqueueMutation;
   var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
   var mixin = scope.mixin;
-  var nodesWereAdded = scope.nodesWereAdded;
   var nodesWereRemoved = scope.nodesWereRemoved;
   var snapshotNodeList = scope.snapshotNodeList;
   var wrappers = scope.wrappers;
@@ -210,7 +209,8 @@
       });
 
       nodesWereRemoved(removedNodes);
-      nodesWereAdded(addedNodes, this);
+      var root = this.ownerShadowRoot_;
+      if (root) root.nodesWereAdded_(addedNodes);
     },
 
     get outerHTML() {

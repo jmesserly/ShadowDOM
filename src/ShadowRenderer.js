@@ -10,7 +10,7 @@
   var Node = window.Node;
   var ShadowRoot = window.ShadowRoot;
   var assert = scope.assert;
-  var getTreeScope = scope.getTreeScope;
+  var isInsertionPoint = scope.isInsertionPoint;
   var mixin = scope.mixin;
   var oneOf = scope.oneOf;
 
@@ -136,17 +136,6 @@
     return renderer;
   }
 
-  function getShadowRootAncestor(node) {
-    var root = getTreeScope(node).root;
-    if (root instanceof ShadowRoot)
-      return root;
-    return null;
-  }
-
-  function getRendererForShadowRoot(shadowRoot) {
-    return getRendererForHost(shadowRoot.host);
-  }
-
   var spliceDiff = new ArraySplice();
   spliceDiff.equals = function(renderNode, rawNode) {
     return renderNode.node === rawNode;
@@ -252,7 +241,8 @@
     },
 
     get parentRenderer() {
-      return getTreeScope(this.host).renderer;
+      var root = this.host.ownerShadowRoot_;
+      return root ? scope.getRendererForHost(root.host) : null;
     },
 
     invalidate: function() {
@@ -547,11 +537,6 @@
     return points && points[points.length - 1] === insertionPoint;
   }
 
-  function isInsertionPoint(node) {
-    // TODO(jmesserly): can we keep this as an instanceof check?
-    return node.localName == 'content' || node.localName == 'shadow';
-  }
-
   function isShadowHost(shadowHost) {
     return shadowHost.shadowRoot;
   }
@@ -607,25 +592,6 @@
   Element.prototype.getDestinationInsertionPoints = function() {
     renderAllPending();
     return getDestinationInsertionPoints(this) || [];
-  };
-
-
-  HTMLContentElement.prototype.nodeIsInserted_ =
-  HTMLShadowElement.prototype.nodeIsInserted_ = function() {
-    if (!isInsertionPoint(this)) {
-      return Node.prototype.nodeIsInserted_.call(this);
-    }
-
-    // Invalidate old renderer if any.
-    this.invalidateShadowRenderer_();
-
-    var shadowRoot = getShadowRootAncestor(this);
-    var renderer;
-    if (shadowRoot)
-      renderer = getRendererForShadowRoot(shadowRoot);
-    this.polymerShadowRenderer_ = renderer;
-    if (renderer)
-      renderer.invalidate();
   };
 
   scope.getRendererForHost = getRendererForHost;

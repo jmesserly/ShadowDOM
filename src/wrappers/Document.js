@@ -6,7 +6,6 @@
   'use strict';
 
   var ShadowRoot = scope.ShadowRoot;
-  var TreeScope = scope.TreeScope;
   var cloneNode = scope.cloneNode;
   var elementFromPoint = scope.elementFromPoint;
   var matchesNames = scope.matchesNames;
